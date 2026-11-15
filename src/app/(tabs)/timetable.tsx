@@ -17,12 +17,32 @@ import { colors } from '@/lib/theme';
 
 type Sheet = { title: string; subtitle?: string; actions: SheetAction[] } | null;
 
+const SHOW_LOCATION_KEY = 'timetable.showLocation';
+
+/** 기기에 저장된 "강의실 표시" 설정 (저장소를 못 쓰는 환경이면 기본값) */
+function loadShowLocation(): boolean {
+  try {
+    return globalThis.localStorage?.getItem(SHOW_LOCATION_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function saveShowLocation(v: boolean) {
+  try {
+    globalThis.localStorage?.setItem(SHOW_LOCATION_KEY, v ? '1' : '0');
+  } catch {
+    // 저장 실패는 무시 (이번 화면에서만 적용)
+  }
+}
+
 export default function TimetableScreen() {
   const router = useRouter();
   const userId = useUserId();
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const [showWeekend, setShowWeekend] = useState(false);
   const [sheet, setSheet] = useState<Sheet>(null);
+  const [showLocation, setShowLocation] = useState(loadShowLocation);
 
   const { data, setData, reload } = useAsync<WeekData>(
     () => loadWeek([userId], weekStart),
@@ -104,7 +124,7 @@ export default function TimetableScreen() {
     const isCancelled = b.variant === 'cancelled';
     setSheet({
       title: b.title,
-      subtitle: `${formatShortDay(date)} ${formatMin(b.start)}~${formatMin(b.end)}${isCancelled ? ' · 휴강' : ''}`,
+      subtitle: `${formatShortDay(date)} ${formatMin(b.start)}~${formatMin(b.end)}${b.sub ? ` · ${b.sub}` : ''}${isCancelled ? ' · 휴강' : ''}`,
       actions: isCancelled
         ? [
             { label: '휴강 취소 (수업 있음)', icon: 'refresh', onPress: () => toggleCancel(entryId, date, true) },
@@ -167,7 +187,19 @@ export default function TimetableScreen() {
         </View>
 
         <View style={[styles.row, { flexWrap: 'wrap', justifyContent: 'space-between' }]}>
-          <Chip label="주말 포함" active={showWeekend || hasWeekend} onPress={() => setShowWeekend((v) => !v)} />
+          <View style={{ flexDirection: 'row' }}>
+            <Chip label="주말 포함" active={showWeekend || hasWeekend} onPress={() => setShowWeekend((v) => !v)} />
+            <Chip
+              label="강의실 표시"
+              active={showLocation}
+              onPress={() =>
+                setShowLocation((v) => {
+                  saveShowLocation(!v);
+                  return !v;
+                })
+              }
+            />
+          </View>
           <Button
             title="이미지로 불러오기"
             icon="image-outline"
@@ -184,6 +216,7 @@ export default function TimetableScreen() {
             days={days}
             dayDates={dayDates}
             blocks={blocks}
+            showSub={showLocation}
             onPressBlock={onPressBlock}
             onPressEmpty={(day, hour) => openAddSheet(day, hour)}
           />

@@ -41,6 +41,8 @@ type BlocksProps = {
   blocks: GridBlock[];
   /** 요일 아래 표시할 날짜 (예: { 1: "11/16" }) */
   dayDates?: Record<number, string>;
+  /** 블록 아래 보조 정보(강의실 등) 표시 여부 */
+  showSub?: boolean;
   onPressBlock?: (b: GridBlock) => void;
   onPressEmpty?: (day: number, hour: number) => void;
 };
@@ -145,7 +147,7 @@ export function TimetableGrid(props: BlocksProps | HeatProps) {
                         >
                           {cancelled ? `휴강 · ${b.title}` : b.title}
                         </Text>
-                        {b.sub && h > 50 && !cancelled ? (
+                        {props.showSub !== false && b.sub && h > 50 && !cancelled ? (
                           <Text style={[s.blockSub, personal && { color: colors.textSub }]} numberOfLines={1}>
                             {b.sub}
                           </Text>
