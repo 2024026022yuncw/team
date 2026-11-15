@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import type { ComponentProps, ReactNode } from 'react';
+import type { ComponentProps, ReactNode, Ref } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -8,6 +8,7 @@ import {
   TextInput,
   View,
   type StyleProp,
+  type TextInputInstance,
   type TextInputProps,
   type ViewStyle,
 } from 'react-native';
@@ -70,9 +71,10 @@ export function Field({ label, children }: { label: string; children: ReactNode 
   );
 }
 
-export function Input(props: TextInputProps) {
+export function Input({ ref, ...props }: TextInputProps & { ref?: Ref<TextInputInstance> }) {
   return (
     <TextInput
+      ref={ref}
       placeholderTextColor={colors.textMuted}
       {...props}
       style={[styles.input, props.multiline && { minHeight: 96, textAlignVertical: 'top' }, props.style]}

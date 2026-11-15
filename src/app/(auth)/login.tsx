@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { KeyboardAvoidingView, Platform, ScrollView, Text, View, type TextInputInstance } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button, Field, Input, Segmented, styles } from '@/components/ui';
@@ -14,8 +14,11 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
+  const emailRef = useRef<TextInputInstance>(null);
+  const passwordRef = useRef<TextInputInstance>(null);
 
   async function submit() {
+    if (busy) return; // 엔터 연타로 중복 요청 방지
     if (!email.trim() || !password) {
       Alert.alert('입력 확인', '이메일과 비밀번호를 입력해주세요.');
       return;
@@ -82,26 +85,42 @@ export default function LoginScreen() {
 
           {mode === 'signup' && (
             <Field label="이름">
-              <Input value={name} onChangeText={setName} placeholder="홍길동" maxLength={20} />
+              <Input
+                value={name}
+                onChangeText={setName}
+                placeholder="홍길동"
+                maxLength={20}
+                returnKeyType="next"
+                submitBehavior="submit"
+                onSubmitEditing={() => emailRef.current?.focus()}
+              />
             </Field>
           )}
           <Field label="이메일">
             <Input
+              ref={emailRef}
               value={email}
               onChangeText={setEmail}
               placeholder="you@example.com"
               autoCapitalize="none"
               keyboardType="email-address"
               autoComplete="email"
+              returnKeyType="next"
+              submitBehavior="submit"
+              // 엔터: 비밀번호가 비어 있으면 비밀번호 칸으로, 이미 입력돼 있으면 바로 로그인
+              onSubmitEditing={() => (password ? submit() : passwordRef.current?.focus())}
             />
           </Field>
           <Field label="비밀번호">
             <Input
+              ref={passwordRef}
               value={password}
               onChangeText={setPassword}
               placeholder="6자 이상"
               secureTextEntry
               autoComplete={mode === 'login' ? 'password' : 'new-password'}
+              returnKeyType="go"
+              onSubmitEditing={submit}
             />
           </Field>
 
