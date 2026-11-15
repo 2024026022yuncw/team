@@ -1,13 +1,15 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useMemo, useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
-import { DAY_LABELS, formatMin, FULL_WEEK, hourRange, TimetableGrid, WEEKDAYS_ONLY } from '@/components/TimetableGrid';
+import { formatMin, FULL_WEEK, hourRange, TimetableGrid, WEEKDAYS_ONLY } from '@/components/TimetableGrid';
 import { Avatar, Card, Chip, SectionTitle, styles } from '@/components/ui';
-import { listTimetable } from '@/lib/api';
+import { useUserId } from '@/lib/auth';
+import { addDays, dateOfWeekday, formatShortDay, startOfWeek, toDateKey } from '@/lib/date';
 import { useAsync, useRealtime } from '@/lib/hooks';
 import { useTeam } from '@/lib/team-context';
 import { colorFor, colors } from '@/lib/theme';
-import type { TimetableEntry } from '@/lib/types';
+import { busyIntervals, EMPTY_WEEK, loadWeek, type BusyInterval, type WeekData } from '@/lib/schedule';
 
 export default function TeamTimetableScreen() {
   const { teamId, members, nameOf } = useTeam();
@@ -15,30 +17,38 @@ export default function TeamTimetableScreen() {
   const [excluded, setExcluded] = useState<string[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
 
-  const { data: entries, reload } = useAsync<TimetableEntry[]>(
-    () => listTimetable(memberIds),
-    [memberIds.join(',')],
-    [],
+  const myId = useUserId();
+  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
+  const { data, reload } = useAsync<WeekData>(
+    () => loadWeek(memberIds, weekStart),
+    [memberIds.join(','), weekStart.getTime()],
+    EMPTY_WEEK,
   );
-  useRealtime(`team-timetable-${teamId}`, [{ table: 'timetable_entries' }], reload);
+  useRealtime(
+    `team-timetable-${teamId}`,
+    [{ table: 'timetable_entries' }, { table: 'timetable_exceptions' }, { table: 'personal_events' }],
+    reload,
+  );
+  const entries = data.entries;
+  const intervals = useMemo(() => busyIntervals(data, weekStart), [data, weekStart]);
 
   const included = memberIds.filter((id) => !excluded.includes(id));
-  const visible = entries.filter((e) => included.includes(e.user_id));
-  const hasWeekend = visible.some((e) => e.day_of_week === 0 || e.day_of_week === 6);
+  const visible = intervals.filter((e) => included.includes(e.userId));
+  const hasWeekend = visible.some((e) => e.day === 0 || e.day === 6);
   const days = hasWeekend ? FULL_WEEK : WEEKDAYS_ONLY;
   const range = hourRange(
-    visible.map((e) => e.start_min),
-    visible.map((e) => e.end_min),
+    visible.map((e) => e.start),
+    visible.map((e) => e.end),
   );
 
   // 30분 칸마다 바쁜 사람 목록
   const busyUsers = useMemo(() => {
-    const map = new Map<string, Map<string, TimetableEntry>>();
+    const map = new Map<string, Map<string, BusyInterval>>();
     for (const e of visible) {
-      for (let slot = Math.floor(e.start_min / 30); slot * 30 < e.end_min; slot++) {
-        const key = `${e.day_of_week}|${slot}`;
+      for (let slot = Math.floor(e.start / 30); slot * 30 < e.end; slot++) {
+        const key = `${e.day}|${slot}`;
         if (!map.has(key)) map.set(key, new Map());
-        map.get(key)!.set(e.user_id, e);
+        map.get(key)!.set(e.userId, e);
       }
     }
     return map;
@@ -70,10 +80,33 @@ export default function TeamTimetableScreen() {
   const selectedBusy = selected ? busyUsers.get(selected) : undefined;
   const [selDay, selSlot] = selected ? selected.split('|').map(Number) : [0, 0];
 
+  const dayDates: Record<number, string> = {};
+  FULL_WEEK.forEach((d) => {
+    const key = dateOfWeekday(weekStart, d);
+    dayDates[d] = `${Number(key.slice(5, 7))}/${Number(key.slice(8))}`;
+  });
+  const isThisWeek = toDateKey(weekStart) === toDateKey(startOfWeek(new Date()));
+
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+      <View style={[styles.row, { justifyContent: 'space-between', marginBottom: 8 }]}>
+        <Pressable onPress={() => { setWeekStart((w) => addDays(w, -7)); setSelected(null); }} hitSlop={12} accessibilityLabel="이전 주">
+          <Ionicons name="chevron-back" size={24} color={colors.text} />
+        </Pressable>
+        <Pressable onPress={() => { setWeekStart(startOfWeek(new Date())); setSelected(null); }} style={{ alignItems: 'center' }}>
+          <Text style={{ fontSize: 17, fontWeight: '700', color: colors.text }}>
+            {formatShortDay(toDateKey(weekStart))} ~ {formatShortDay(toDateKey(addDays(weekStart, 6)))}
+          </Text>
+          <Text style={[styles.muted, { color: isThisWeek ? colors.primary : colors.textMuted }]}>
+            {isThisWeek ? '이번 주' : '눌러서 이번 주로'}
+          </Text>
+        </Pressable>
+        <Pressable onPress={() => { setWeekStart((w) => addDays(w, 7)); setSelected(null); }} hitSlop={12} accessibilityLabel="다음 주">
+          <Ionicons name="chevron-forward" size={24} color={colors.text} />
+        </Pressable>
+      </View>
       <Text style={[styles.sub, { marginBottom: 8 }]}>
-        팀원들의 시간표를 겹쳐 보여줘요. <Text style={{ color: colors.success, fontWeight: '700' }}>초록</Text>은 모두
+        팀원들의 시간표를 겹쳐 보여줘요(휴강·개인 일정 반영). <Text style={{ color: colors.success, fontWeight: '700' }}>초록</Text>은 모두
         비는 시간, <Text style={{ color: colors.danger, fontWeight: '700' }}>빨강</Text>은 진할수록 바쁜 사람이 많아요.
       </Text>
 
@@ -99,6 +132,7 @@ export default function TeamTimetableScreen() {
         <TimetableGrid
           mode="heat"
           days={days}
+          dayDates={dayDates}
           busy={busyCount}
           total={included.length}
           range={range}
@@ -110,7 +144,7 @@ export default function TeamTimetableScreen() {
       {selected && (
         <Card>
           <Text style={styles.title}>
-            {DAY_LABELS[selDay]}요일 {formatMin(selSlot * 30)}~{formatMin(selSlot * 30 + 30)}
+            {formatShortDay(dateOfWeekday(weekStart, selDay))} {formatMin(selSlot * 30)}~{formatMin(selSlot * 30 + 30)}
           </Text>
           <View style={{ marginTop: 8, gap: 6 }}>
             {included.map((id) => {
@@ -120,7 +154,7 @@ export default function TeamTimetableScreen() {
                   <Avatar id={id} name={nameOf(id)} size={24} />
                   <Text style={{ flex: 1, color: colors.text }}>{nameOf(id)}</Text>
                   <Text style={{ color: entry ? colors.danger : colors.success, fontWeight: '600' }}>
-                    {entry ? entry.title : '가능'}
+                    {entry ? (entry.kind === 'personal' && id !== myId ? '개인 일정' : entry.title) : '가능'}
                   </Text>
                 </View>
               );
@@ -138,7 +172,7 @@ export default function TeamTimetableScreen() {
         <Card>
           {freeBlocks.map((b) => (
             <Text key={`${b.day}-${b.start}`} style={{ paddingVertical: 4, color: colors.text }}>
-              <Text style={{ fontWeight: '700' }}>{DAY_LABELS[b.day]}</Text> {formatMin(b.start)} ~ {formatMin(b.end)}
+              <Text style={{ fontWeight: '700' }}>{formatShortDay(dateOfWeekday(weekStart, b.day))}</Text> {formatMin(b.start)} ~ {formatMin(b.end)}
               <Text style={styles.muted}> ({(b.end - b.start) / 60}시간)</Text>
             </Text>
           ))}

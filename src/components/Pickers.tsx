@@ -1,8 +1,8 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { fromDateKey, formatDay } from '@/lib/date';
+import { fromDateKey, formatDay, parseHHMM, toHHMM } from '@/lib/date';
 import { colors, radius } from '@/lib/theme';
 import { MonthCalendar } from './MonthCalendar';
 import { Button } from './ui';
@@ -54,31 +54,76 @@ export function DateField({
   );
 }
 
-/** 시간 선택: 분 단위 값(0~1439)을 30분 간격으로 조절 */
-export function TimeStepper({ minutes, onChange }: { minutes: number; onChange: (m: number) => void }) {
-  const step = (delta: number) => onChange((minutes + delta + 1440) % 1440);
+/**
+ * 시간 입력: "13:45" 처럼 직접 입력하거나 ± 버튼으로 5분씩 조절.
+ * minutes 는 자정부터의 분(0~max).
+ */
+export function TimeStepper({
+  minutes,
+  onChange,
+  max = 1439,
+}: {
+  minutes: number;
+  onChange: (m: number) => void;
+  max?: number;
+}) {
+  const [text, setText] = useState(toHHMM(minutes));
+  const [invalid, setInvalid] = useState(false);
+
+  // 바깥에서 값이 바뀌면 입력칸도 맞춤
+  useEffect(() => {
+    setText(toHHMM(minutes));
+    setInvalid(false);
+  }, [minutes]);
+
+  function commit(value: string) {
+    // "930" → 9:30, "1345" → 13:45 처럼 콜론 없이 입력해도 인식
+    const digits = value.replace(/[^0-9]/g, '');
+    const normalized = value.includes(':') ? value : digits.length >= 3 ? `${digits.slice(0, -2)}:${digits.slice(-2)}` : `${digits}:00`;
+    const parsed = parseHHMM(normalized);
+    if (parsed === null || parsed > max) {
+      setInvalid(true);
+      return;
+    }
+    setInvalid(false);
+    setText(toHHMM(parsed));
+    onChange(parsed);
+  }
+
+  const step = (delta: number) => onChange(Math.min(max, Math.max(0, minutes + delta)));
   const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  const ampm = h < 12 ? '오전' : '오후';
+  const label = h < 12 ? '오전' : h === 24 ? '자정' : '오후';
   const h12 = h % 12 === 0 ? 12 : h % 12;
 
   return (
-    <View style={s.stepper}>
-      <Pressable onPress={() => step(-60)} style={s.stepBtn} accessibilityLabel="1시간 전">
-        <Ionicons name="play-back" size={16} color={colors.primary} />
-      </Pressable>
-      <Pressable onPress={() => step(-30)} style={s.stepBtn} accessibilityLabel="30분 전">
-        <Ionicons name="remove" size={20} color={colors.primary} />
-      </Pressable>
-      <Text style={s.timeText}>
-        {ampm} {h12}:{String(m).padStart(2, '0')}
-      </Text>
-      <Pressable onPress={() => step(30)} style={s.stepBtn} accessibilityLabel="30분 후">
-        <Ionicons name="add" size={20} color={colors.primary} />
-      </Pressable>
-      <Pressable onPress={() => step(60)} style={s.stepBtn} accessibilityLabel="1시간 후">
-        <Ionicons name="play-forward" size={16} color={colors.primary} />
-      </Pressable>
+    <View>
+      <View style={[s.stepper, invalid && { borderColor: colors.danger }]}>
+        <Pressable onPress={() => step(-5)} style={s.stepBtn} accessibilityLabel="5분 전">
+          <Ionicons name="remove" size={20} color={colors.primary} />
+        </Pressable>
+        <TextInput
+          value={text}
+          onChangeText={(t) => {
+            setText(t);
+            if (invalid) setInvalid(false);
+          }}
+          onBlur={() => commit(text)}
+          onSubmitEditing={() => commit(text)}
+          keyboardType="numbers-and-punctuation"
+          returnKeyType="done"
+          maxLength={5}
+          selectTextOnFocus
+          style={[s.timeText, s.timeInput]}
+          accessibilityLabel="시간 입력 (예: 13:45)"
+        />
+        <Text style={s.ampm}>
+          {label} {h12}:{String(minutes % 60).padStart(2, '0')}
+        </Text>
+        <Pressable onPress={() => step(5)} style={s.stepBtn} accessibilityLabel="5분 후">
+          <Ionicons name="add" size={20} color={colors.primary} />
+        </Pressable>
+      </View>
+      {invalid && <Text style={s.error}>00:00 ~ {toHHMM(max)} 형식으로 입력해주세요 (예: 13:45)</Text>}
     </View>
   );
 }
@@ -137,4 +182,7 @@ const s = StyleSheet.create({
   },
   stepBtn: { padding: 10 },
   timeText: { flex: 1, textAlign: 'center', fontSize: 16, fontWeight: '600', color: colors.text },
+  timeInput: { fontSize: 20, paddingVertical: 10, letterSpacing: 1 },
+  ampm: { fontSize: 13, color: colors.textSub, marginRight: 4 },
+  error: { color: colors.danger, fontSize: 12, marginTop: 4 },
 });

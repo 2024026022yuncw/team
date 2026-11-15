@@ -13,6 +13,7 @@
 | 공유 캘린더 | 월간 달력에 팀 일정이 표시되고 누구나 등록·수정할 수 있습니다. 등록자별로 색이 다르고, 변경 사항은 실시간으로 반영됩니다. |
 | 가능 시간 투표 | 후보 날짜(최대 14일)와 시간대를 정하면, 팀원들이 날짜×시간 표에서 가능한 칸을 탭합니다. 겹치는 인원이 많을수록 칸이 진하게 표시되고, 추천 시간 Top 3 중 하나를 골라 바로 일정으로 확정할 수 있습니다. |
 | 할 일 / 역할 분담 | 할 일마다 담당자와 마감일(D-day)을 정하고 상태(할 일 → 진행 중 → 완료)를 바꿀 수 있습니다. 멤버별 역할 이름(발표, 자료조사 등)과 진행률을 볼 수 있습니다. |
+| 시간표 | 매주 반복 일정(수업·알바)을 주 단위로 보고, 특정 주만 휴강 처리하거나 그 날만 있는 개인 일정을 추가할 수 있습니다. 에브리타임 캡처를 올리면 AI(Claude)가 자동으로 입력합니다. 팀 화면에서 팀원 시간표를 겹쳐 모두 비는 시간을 찾을 수 있습니다. |
 | 다이어리 | 날짜별로 개인 할 일 체크리스트와 기분·메모를 남깁니다(자동 저장, 나만 볼 수 있음). 내게 배정된 팀 과제도 함께 보입니다. |
 
 ## 시작하기
@@ -24,11 +25,15 @@
 3. (개발 중 권장) **Authentication → Sign In / Providers → Email**에서 **Confirm email**을 끄면, 가입하자마자 바로 로그인됩니다.
 4. **Project Settings → API**에서 Project URL과 publishable(또는 anon) key를 복사합니다.
 
+> DB를 이미 만든 뒤 기능이 추가된 경우: [supabase/migrations/](supabase/migrations/)의 SQL을 번호 순서대로 SQL Editor에서 실행하세요.
+
 ### 2. 환경 변수
 
 `.env`에 Supabase URL과 publishable 키가 들어 있습니다. 테트리스 프로젝트의 `config.js`처럼 **코드와 함께 커밋**하므로 Vercel 환경변수 설정은 필요 없습니다.
 
 > publishable 키는 공개되어도 괜찮은 값이고, 데이터는 RLS로 보호됩니다. **`sb_secret_...`이나 service_role 키는 절대 넣지 마세요.**
+
+**시간표 이미지 인식**을 쓰려면 Vercel → 프로젝트 → **Settings → Environment Variables**에 `ANTHROPIC_API_KEY`(Anthropic Console에서 발급)를 추가하고 다시 배포하세요. 이 키는 서버 함수([api/parse-timetable.ts](api/parse-timetable.ts))에서만 쓰이고 앱에는 들어가지 않습니다.
 
 ### 3. 로컬에서 실행
 

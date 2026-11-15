@@ -91,3 +91,20 @@ export type TimetableEntry = {
   location: string;
   color: string;
 };
+
+export type TimetableException = {
+  entry_id: string;
+  user_id: string;
+  exception_date: string; // 'YYYY-MM-DD'
+};
+
+export type PersonalEvent = {
+  id: string;
+  user_id: string;
+  event_date: string; // 'YYYY-MM-DD'
+  start_min: number;
+  end_min: number;
+  title: string;
+  location: string;
+  color: string;
+};

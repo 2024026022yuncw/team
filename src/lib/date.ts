@@ -84,3 +84,29 @@ export function combine(key: string, minutes: number): Date {
 export function minutesOfDay(d: Date): number {
   return d.getHours() * 60 + d.getMinutes();
 }
+
+/** 그 주의 월요일 */
+export function startOfWeek(d: Date): Date {
+  const r = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  r.setDate(r.getDate() - ((r.getDay() + 6) % 7));
+  return r;
+}
+
+/** 주 시작(월요일) 기준으로 요일(0=일~6=토)의 date key */
+export function dateOfWeekday(weekStart: Date, dayOfWeek: number): string {
+  return toDateKey(addDays(weekStart, (dayOfWeek + 6) % 7));
+}
+
+/** "13:45" 형태 → 분 (잘못된 형식이면 null) */
+export function parseHHMM(text: string): number | null {
+  const m = /^(\d{1,2}):?(\d{2})$/.exec(text.trim());
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = Number(m[2]);
+  if (h > 24 || min > 59 || (h === 24 && min > 0)) return null;
+  return h * 60 + min;
+}
+
+export function toHHMM(min: number): string {
+  return `${pad(Math.floor(min / 60))}:${pad(min % 60)}`;
+}

@@ -1,7 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '@/lib/theme';
-import type { TimetableEntry } from '@/lib/types';
 
 export const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
 export const WEEKDAYS_ONLY = [1, 2, 3, 4, 5];
@@ -24,17 +23,32 @@ export function hourRange(starts: number[], ends: number[]): [number, number] {
   return [Math.min(9, Math.floor(minStart / 60)), Math.max(18, Math.ceil(maxEnd / 60))];
 }
 
+/** 시간표 칸에 그릴 블록 (수업/휴강/개인 일정 공통) */
+export type GridBlock = {
+  key: string;
+  day: number;
+  start: number;
+  end: number;
+  title: string;
+  sub?: string;
+  color: string;
+  variant?: 'normal' | 'cancelled' | 'personal';
+};
+
 type BlocksProps = {
   mode: 'blocks';
   days: number[];
-  entries: TimetableEntry[];
-  onPressEntry?: (e: TimetableEntry) => void;
+  blocks: GridBlock[];
+  /** 요일 아래 표시할 날짜 (예: { 1: "11/16" }) */
+  dayDates?: Record<number, string>;
+  onPressBlock?: (b: GridBlock) => void;
   onPressEmpty?: (day: number, hour: number) => void;
 };
 
 type HeatProps = {
   mode: 'heat';
   days: number[];
+  dayDates?: Record<number, string>;
   /** `${day}|${slot}` (slot = 30분 단위 index) → 바쁜 사람 수 */
   busy: Map<string, number>;
   total: number;
@@ -47,8 +61,8 @@ export function TimetableGrid(props: BlocksProps | HeatProps) {
   const [startHour, endHour] =
     props.mode === 'blocks'
       ? hourRange(
-          props.entries.map((e) => e.start_min),
-          props.entries.map((e) => e.end_min),
+          props.blocks.map((b) => b.start),
+          props.blocks.map((b) => b.end),
         )
       : props.range;
   const hours = Array.from({ length: endHour - startHour }, (_, i) => startHour + i);
@@ -65,6 +79,12 @@ export function TimetableGrid(props: BlocksProps | HeatProps) {
             style={[s.dayHeader, d === 0 && { color: colors.sunday }, d === 6 && { color: colors.saturday }]}
           >
             {DAY_LABELS[d]}
+            {props.dayDates?.[d] ? (
+              <Text style={s.dayDate}>
+                {'\n'}
+                {props.dayDates[d]}
+              </Text>
+            ) : null}
           </Text>
         ))}
       </View>
@@ -97,24 +117,37 @@ export function TimetableGrid(props: BlocksProps | HeatProps) {
                       accessibilityLabel={`${DAY_LABELS[d]}요일 ${h}시에 추가`}
                     />
                   ))}
-                {props.entries
-                  .filter((e) => e.day_of_week === d)
-                  .map((e) => {
-                    const top = ((e.start_min - startHour * 60) / 60) * HOUR_H;
-                    const h = ((e.end_min - e.start_min) / 60) * HOUR_H;
-                    const bg = e.color || ENTRY_COLORS[0];
+                {props.blocks
+                  .filter((b) => b.day === d)
+                  .map((b) => {
+                    const top = ((b.start - startHour * 60) / 60) * HOUR_H;
+                    const h = ((b.end - b.start) / 60) * HOUR_H;
+                    const cancelled = b.variant === 'cancelled';
+                    const personal = b.variant === 'personal';
                     return (
                       <Pressable
-                        key={e.id}
-                        onPress={() => props.onPressEntry?.(e)}
-                        style={[s.block, { top, height: Math.max(h - 2, 18), backgroundColor: bg }]}
+                        key={b.key}
+                        onPress={() => props.onPressBlock?.(b)}
+                        style={[
+                          s.block,
+                          { top, height: Math.max(h - 2, 18), backgroundColor: b.color || ENTRY_COLORS[0] },
+                          cancelled && s.cancelled,
+                          personal && { backgroundColor: colors.card, borderWidth: 2, borderStyle: 'dashed', borderColor: b.color },
+                        ]}
                       >
-                        <Text style={s.blockTitle} numberOfLines={h > 40 ? 2 : 1}>
-                          {e.title}
+                        <Text
+                          style={[
+                            s.blockTitle,
+                            cancelled && { color: colors.textSub, textDecorationLine: 'line-through' },
+                            personal && { color: b.color },
+                          ]}
+                          numberOfLines={h > 40 ? 2 : 1}
+                        >
+                          {cancelled ? `휴강 · ${b.title}` : b.title}
                         </Text>
-                        {e.location && h > 50 ? (
-                          <Text style={s.blockSub} numberOfLines={1}>
-                            {e.location}
+                        {b.sub && h > 50 && !cancelled ? (
+                          <Text style={[s.blockSub, personal && { color: colors.textSub }]} numberOfLines={1}>
+                            {b.sub}
                           </Text>
                         ) : null}
                       </Pressable>
@@ -161,6 +194,8 @@ const s = StyleSheet.create({
   emptyCell: { position: 'absolute', left: 0, right: 0, height: HOUR_H },
   block: { position: 'absolute', left: 2, right: 2, borderRadius: 6, padding: 4, overflow: 'hidden' },
   blockTitle: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  cancelled: { backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: colors.border, opacity: 0.8 },
+  dayDate: { fontSize: 10, fontWeight: '400', color: colors.textMuted },
   blockSub: { color: 'rgba(255,255,255,0.85)', fontSize: 10, marginTop: 2 },
   heatCell: { position: 'absolute', left: 1, right: 1, height: HOUR_H / 2 - 1, borderRadius: 3 },
 });

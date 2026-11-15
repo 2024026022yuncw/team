@@ -9,7 +9,9 @@ import type {
   Team,
   TeamEvent,
   TeamMember,
+  PersonalEvent,
   TimetableEntry,
+  TimetableException,
 } from './types';
 
 function check<T>(res: { data: T | null; error: unknown }): T {
@@ -280,4 +282,65 @@ export async function deleteTimetableEntry(id: string) {
 // ------------------------------------------------------------------ 회원탈퇴
 export async function deleteMyAccount() {
   check(await supabase.rpc('delete_my_account'));
+}
+
+// ------------------------------------------------------------------ 휴강 / 개인 일정
+export async function listExceptions(userIds: string[], from: string, to: string): Promise<TimetableException[]> {
+  if (userIds.length === 0) return [];
+  return check(
+    await supabase
+      .from('timetable_exceptions')
+      .select('entry_id, user_id, exception_date')
+      .in('user_id', userIds)
+      .gte('exception_date', from)
+      .lte('exception_date', to),
+  );
+}
+
+export async function addException(entryId: string, date: string) {
+  check(
+    await supabase
+      .from('timetable_exceptions')
+      .upsert({ entry_id: entryId, exception_date: date }, { ignoreDuplicates: true }),
+  );
+}
+
+export async function removeException(entryId: string, date: string) {
+  check(await supabase.from('timetable_exceptions').delete().eq('entry_id', entryId).eq('exception_date', date));
+}
+
+export async function listPersonalEvents(userIds: string[], from: string, to: string): Promise<PersonalEvent[]> {
+  if (userIds.length === 0) return [];
+  return check(
+    await supabase
+      .from('personal_events')
+      .select('*')
+      .in('user_id', userIds)
+      .gte('event_date', from)
+      .lte('event_date', to)
+      .order('start_min'),
+  );
+}
+
+export async function getPersonalEvent(id: string): Promise<PersonalEvent | null> {
+  return check(await supabase.from('personal_events').select('*').eq('id', id).maybeSingle());
+}
+
+export type PersonalEventInput = Pick<PersonalEvent, 'event_date' | 'start_min' | 'end_min' | 'title' | 'location' | 'color'>;
+
+export async function createPersonalEvent(input: PersonalEventInput) {
+  check(await supabase.from('personal_events').insert(input));
+}
+
+export async function updatePersonalEvent(id: string, input: PersonalEventInput) {
+  check(await supabase.from('personal_events').update(input).eq('id', id));
+}
+
+export async function deletePersonalEvent(id: string) {
+  check(await supabase.from('personal_events').delete().eq('id', id));
+}
+
+/** 내 시간표 전체 삭제 (이미지로 덮어쓰기용) */
+export async function deleteMyTimetable(userId: string) {
+  check(await supabase.from('timetable_entries').delete().eq('user_id', userId));
 }
