@@ -60,6 +60,7 @@ export default function TimetableImportScreen() {
         body: JSON.stringify({ image: base64, mediaType }),
       });
       const data = (await res.json().catch(() => ({}))) as { entries?: ParsedEntry[]; warning?: string; error?: string };
+      if (res.status === 504) throw new Error('AI 응답이 너무 오래 걸렸어요. 잠시 후 다시 시도해주세요.');
       if (!res.ok) throw new Error(data.error ?? `서버 오류 (${res.status})`);
       const list = data.entries ?? [];
       setEntries(list);

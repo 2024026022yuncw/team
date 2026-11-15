@@ -2,7 +2,14 @@
   "buildCommand": "npx expo export --platform web",
   "outputDirectory": "dist",
   "functions": {
-    "api/parse-timetable.ts": { "maxDuration": 60 }
+    "api/parse-timetable.ts": {
+      "maxDuration": 300
+    }
   },
-  "rewrites": [{ "source": "/((?!api/).*)", "destination": "/index.html" }]
+  "rewrites": [
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
+    }
+  ]
 }

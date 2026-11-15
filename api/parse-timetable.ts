@@ -104,6 +104,8 @@ export async function POST(request: Request): Promise<Response> {
         { type: 'image', data: image, mime_type: mediaType },
       ],
       response_format: { type: 'text', mime_type: 'application/json', schema: SCHEMA },
+      // 시간표 읽기는 깊은 추론이 필요 없어 생각 단계를 줄여 응답 속도 확보
+      generation_config: { thinking_level: 'low' },
     });
 
     let parsed: { entries?: unknown; warning?: unknown };
