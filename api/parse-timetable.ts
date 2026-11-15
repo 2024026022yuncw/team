@@ -2,9 +2,13 @@
 // POST /api/parse-timetable   body: { image: base64, mediaType: "image/jpeg" | "image/png" | ... }
 // 필요 환경변수 (Vercel > Settings > Environment Variables): GEMINI_API_KEY (Google AI Studio 무료 키)
 // 선택: GEMINI_MODEL (기본 gemini-3.8-flash)
-import { ApiError, GoogleGenAI } from '@google/genai';
+import { ApiError, GoogleGenAI, ThinkingLevel } from '@google/genai';
 
 const MODEL = process.env.GEMINI_MODEL ?? 'gemini-3.8-flash';
+// 기본 모델이 너무 오래 걸릴 때 한 번 더 시도할 가벼운 모델
+const FALLBACK_MODEL = 'gemini-3.5-flash-lite';
+
+class TimeoutError extends Error {}
 
 // 공개 값 (앱의 .env 와 동일). 로그인한 사용자만 이 API 를 쓰도록 토큰 확인에 사용
 const SUPABASE_URL = process.env.SUPABASE_URL ?? 'https://vrezbqnabniscsoqkpqi.supabase.co';
@@ -94,23 +98,56 @@ export async function POST(request: Request): Promise<Response> {
   if (!image) return json({ error: '이미지가 없어요.' }, 400);
   if (image.length > MAX_BASE64_LENGTH) return json({ error: '이미지가 너무 커요. 더 작은 캡처로 시도해주세요.' }, 413);
 
-  // 이미지 입력은 v1beta 에서만 지원됨 (v1 은 'image' 타입 거부)
-  const ai = new GoogleGenAI({ apiKey, apiVersion: 'v1beta' });
+  const ai = new GoogleGenAI({ apiKey });
+
+  /** 모델 한 번 호출. timeoutMs 안에 답이 없으면 취소하고 TimeoutError 를 던짐 */
+  async function callModel(model: string, timeoutMs: number): Promise<string> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const startedAt = Date.now();
+    try {
+      const res = await ai.models.generateContent({
+        model,
+        contents: [
+          {
+            role: 'user',
+            parts: [{ inlineData: { mimeType: mediaType, data: image } }, { text: PROMPT }],
+          },
+        ],
+        config: {
+          responseMimeType: 'application/json',
+          responseJsonSchema: SCHEMA,
+          // 시간표 읽기는 깊은 추론이 필요 없어 생각 단계를 최소로 → 응답 속도 확보
+          thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
+          abortSignal: controller.signal,
+        },
+      });
+      console.log(`[parse-timetable] ${model} ${Date.now() - startedAt}ms`);
+      return res.text ?? '';
+    } catch (err) {
+      if (controller.signal.aborted) {
+        console.warn(`[parse-timetable] ${model} timeout after ${Date.now() - startedAt}ms`);
+        throw new TimeoutError();
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   try {
-    const interaction = await ai.interactions.create({
-      model: MODEL,
-      input: [
-        { type: 'text', text: PROMPT },
-        { type: 'image', data: image, mime_type: mediaType },
-      ],
-      response_format: { type: 'text', mime_type: 'application/json', schema: SCHEMA },
-      // 시간표 읽기는 깊은 추론이 필요 없어 생각 단계를 줄여 응답 속도 확보
-      generation_config: { thinking_level: 'low' },
-    });
+    // Vercel 함수 제한 시간 안에 끝나도록: 기본 모델 40초 → 안 되면 가벼운 모델 15초
+    let text: string;
+    try {
+      text = await callModel(MODEL, 40_000);
+    } catch (err) {
+      if (!(err instanceof TimeoutError) || MODEL === FALLBACK_MODEL) throw err;
+      text = await callModel(FALLBACK_MODEL, 15_000);
+    }
 
     let parsed: { entries?: unknown; warning?: unknown };
     try {
-      parsed = JSON.parse(interaction.output_text ?? '');
+      parsed = JSON.parse(text);
     } catch {
       return json({ error: '시간표를 읽지 못했어요. 다시 시도해주세요.' }, 502);
     }
@@ -138,6 +175,9 @@ export async function POST(request: Request): Promise<Response> {
 
     return json({ entries, warning: typeof parsed.warning === 'string' ? parsed.warning : '' });
   } catch (err) {
+    if (err instanceof TimeoutError) {
+      return json({ error: 'AI 응답이 너무 오래 걸렸어요. 시간표 부분만 잘라서 캡처하면 더 빨라요.' }, 504);
+    }
     console.error('[parse-timetable]', err);
     const { status, reason, message } = describeGeminiError(err);
 
@@ -169,7 +209,13 @@ function describeGeminiError(err: unknown): { status?: number; reason?: string; 
   let reason: string | undefined;
   let message: string | undefined;
   try {
-    const raw = typeof e.body === 'string' ? JSON.parse(e.body) : e.body;
+    // interactions API 는 body 에, generateContent API(ApiError)는 message 안에 JSON 으로 원인을 담음
+    const jsonInMessage =
+      e.body === undefined && typeof e.message === 'string' && e.message.includes('{')
+        ? e.message.slice(e.message.indexOf('{'))
+        : undefined;
+    const source = e.body ?? jsonInMessage;
+    const raw = typeof source === 'string' ? JSON.parse(source) : source;
     const body = Array.isArray(raw) ? raw[0] : raw;
     const g = body?.error;
     if (g) {
