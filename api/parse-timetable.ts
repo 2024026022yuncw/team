@@ -100,13 +100,17 @@ export async function POST(request: Request): Promise<Response> {
 
   const ai = new GoogleGenAI({ apiKey });
 
-  /** 모델 한 번 호출. timeoutMs 안에 답이 없으면 취소하고 TimeoutError 를 던짐 */
+  /**
+   * 모델 한 번 호출. timeoutMs 안에 답이 없으면 취소하고 TimeoutError 를 던짐.
+   * 시간표 읽기는 깊은 추론이 필요 없어 생각 단계를 LOW 로 낮춤(속도). 모델이 그 설정을
+   * 거부하면(모델마다 지원 단계가 다름) 설정 없이 같은 시간 안에서 한 번 더 시도.
+   */
   async function callModel(model: string, timeoutMs: number): Promise<string> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     const startedAt = Date.now();
-    try {
-      const res = await ai.models.generateContent({
+    const request = (withThinking: boolean) =>
+      ai.models.generateContent({
         model,
         contents: [
           {
@@ -117,11 +121,20 @@ export async function POST(request: Request): Promise<Response> {
         config: {
           responseMimeType: 'application/json',
           responseJsonSchema: SCHEMA,
-          // 시간표 읽기는 깊은 추론이 필요 없어 생각 단계를 최소로 → 응답 속도 확보
-          thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
+          ...(withThinking ? { thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } } : {}),
           abortSignal: controller.signal,
         },
       });
+    try {
+      let res;
+      try {
+        res = await request(true);
+      } catch (err) {
+        const { status, message } = describeGeminiError(err);
+        if (controller.signal.aborted || status !== 400 || !/thinking/i.test(message ?? '')) throw err;
+        console.warn(`[parse-timetable] ${model} rejected thinking level, retrying without it`);
+        res = await request(false);
+      }
       console.log(`[parse-timetable] ${model} ${Date.now() - startedAt}ms`);
       return res.text ?? '';
     } catch (err) {
