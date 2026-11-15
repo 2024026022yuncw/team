@@ -135,13 +135,50 @@ export async function POST(request: Request): Promise<Response> {
 
     return json({ entries, warning: typeof parsed.warning === 'string' ? parsed.warning : '' });
   } catch (err) {
-    if (err instanceof ApiError) {
-      if (err.status === 400) return json({ error: '이미지를 처리할 수 없어요. PNG/JPG 캡처인지 확인해주세요.' }, 400);
-      if (err.status === 401 || err.status === 403) return json({ error: '서버의 Gemini API 키가 올바르지 않아요.' }, 500);
-      if (err.status === 429) return json({ error: '오늘 무료 사용량을 다 썼거나 요청이 많아요. 잠시 후 다시 시도해주세요.' }, 429);
-      return json({ error: `AI 서버 오류 (${err.status})` }, 502);
+    console.error('[parse-timetable]', err);
+    const { status, reason, message } = describeGeminiError(err);
+
+    if (reason === 'API_KEY_INVALID' || status === 401 || status === 403) {
+      return json({ error: '서버의 Gemini API 키가 올바르지 않아요. Vercel 의 GEMINI_API_KEY 값을 확인해주세요.' }, 500);
     }
-    console.error(err);
-    return json({ error: '알 수 없는 오류가 발생했어요.' }, 500);
+    if (status === 429 || reason === 'RESOURCE_EXHAUSTED') {
+      return json({ error: '오늘 무료 사용량을 다 썼거나 요청이 많아요. 잠시 후 다시 시도해주세요.' }, 429);
+    }
+    if (status === 404) {
+      return json({ error: `AI 모델(${MODEL})을 사용할 수 없어요. (${message || 'not found'})` }, 502);
+    }
+    if (status === 400) {
+      return json({ error: `요청을 처리할 수 없어요: ${message || '잘못된 요청'}` }, 400);
+    }
+    return json({ error: `AI 서버 오류${status ? ` (${status})` : ''}: ${message || String(err)}` }, 502);
   }
+}
+
+/**
+ * Gemini SDK 는 API 종류에 따라 서로 다른 오류 클래스를 던지므로(ApiError, BadRequestError 등)
+ * 공통 필드(status/statusCode, body)에서 상태 코드와 구글의 원인 메시지를 꺼냄
+ */
+function describeGeminiError(err: unknown): { status?: number; reason?: string; message?: string } {
+  if (!err || typeof err !== 'object') return { message: String(err) };
+  const e = err as { status?: unknown; statusCode?: unknown; body?: unknown; message?: unknown };
+  const status = typeof e.status === 'number' ? e.status : typeof e.statusCode === 'number' ? e.statusCode : undefined;
+
+  let reason: string | undefined;
+  let message: string | undefined;
+  try {
+    const raw = typeof e.body === 'string' ? JSON.parse(e.body) : e.body;
+    const body = Array.isArray(raw) ? raw[0] : raw;
+    const g = body?.error;
+    if (g) {
+      message = typeof g.message === 'string' ? g.message : undefined;
+      reason =
+        (Array.isArray(g.details) ? g.details.find((d: { reason?: string }) => d?.reason)?.reason : undefined) ??
+        (typeof g.status === 'string' ? g.status : undefined);
+    }
+  } catch {
+    // body 가 JSON 이 아니면 무시
+  }
+  if (!message && err instanceof ApiError) message = err.message;
+  if (!message && typeof e.message === 'string') message = e.message.slice(0, 300);
+  return { status, reason, message };
 }
