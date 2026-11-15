@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "team-meetup",
+    "name": "팀플모임",
     "slug": "team-meetup",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -19,7 +19,19 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
-    }
+      "favicon": "./assets/favicon.png",
+      "output": "single",
+      "name": "팀플모임",
+      "shortName": "팀플모임",
+      "themeColor": "#4F46E5",
+      "backgroundColor": "#F9FAFB",
+      "lang": "ko"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-status-bar",
+      "expo-sqlite"
+    ],
+    "scheme": "teammeetup"
   }
 }
