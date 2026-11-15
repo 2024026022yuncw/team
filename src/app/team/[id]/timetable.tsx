@@ -4,12 +4,11 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { formatMin, FULL_WEEK, hourRange, TimetableGrid, WEEKDAYS_ONLY } from '@/components/TimetableGrid';
 import { Avatar, Card, Chip, SectionTitle, styles } from '@/components/ui';
-import { useUserId } from '@/lib/auth';
 import { addDays, dateOfWeekday, formatShortDay, startOfWeek, toDateKey } from '@/lib/date';
-import { useAsync, useRealtime } from '@/lib/hooks';
+import { useAsync } from '@/lib/hooks';
+import { listTeamBusyTimes, type BusyInterval } from '@/lib/schedule';
 import { useTeam } from '@/lib/team-context';
 import { colorFor, colors } from '@/lib/theme';
-import { busyIntervals, EMPTY_WEEK, loadWeek, type BusyInterval, type WeekData } from '@/lib/schedule';
 
 export default function TeamTimetableScreen() {
   const { teamId, members, nameOf } = useTeam();
@@ -17,20 +16,13 @@ export default function TeamTimetableScreen() {
   const [excluded, setExcluded] = useState<string[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
 
-  const myId = useUserId();
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
-  const { data, reload } = useAsync<WeekData>(
-    () => loadWeek(memberIds, weekStart),
-    [memberIds.join(','), weekStart.getTime()],
-    EMPTY_WEEK,
+  // 팀원 시간표는 과목명 없이 "바쁜 시간"만 받아옴 (DB 함수 team_busy_times)
+  const { data: intervals } = useAsync<BusyInterval[]>(
+    () => listTeamBusyTimes(teamId, weekStart),
+    [teamId, weekStart.getTime()],
+    [],
   );
-  useRealtime(
-    `team-timetable-${teamId}`,
-    [{ table: 'timetable_entries' }, { table: 'timetable_exceptions' }, { table: 'personal_events' }],
-    reload,
-  );
-  const entries = data.entries;
-  const intervals = useMemo(() => busyIntervals(data, weekStart), [data, weekStart]);
 
   const included = memberIds.filter((id) => !excluded.includes(id));
   const visible = intervals.filter((e) => included.includes(e.userId));
@@ -106,18 +98,18 @@ export default function TeamTimetableScreen() {
         </Pressable>
       </View>
       <Text style={[styles.sub, { marginBottom: 8 }]}>
-        팀원들의 시간표를 겹쳐 보여줘요(휴강·개인 일정 반영). <Text style={{ color: colors.success, fontWeight: '700' }}>초록</Text>은 모두
+        팀원들의 바쁜 시간을 겹쳐 보여줘요(휴강·개인 일정 반영). 과목명·강의실은 팀원에게 공개되지 않아요. <Text style={{ color: colors.success, fontWeight: '700' }}>초록</Text>은 모두
         비는 시간, <Text style={{ color: colors.danger, fontWeight: '700' }}>빨강</Text>은 진할수록 바쁜 사람이 많아요.
       </Text>
 
       <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
         {members.map((m) => {
           const on = !excluded.includes(m.user_id);
-          const count = entries.filter((e) => e.user_id === m.user_id).length;
+          const count = intervals.filter((e) => e.userId === m.user_id).length;
           return (
             <Chip
               key={m.user_id}
-              label={`${nameOf(m.user_id)}${count === 0 ? ' (미등록)' : ''}`}
+              label={`${nameOf(m.user_id)}${count === 0 ? ' (이번 주 일정 없음)' : ''}`}
               active={on}
               color={colorFor(m.user_id)}
               onPress={() =>
@@ -154,7 +146,7 @@ export default function TeamTimetableScreen() {
                   <Avatar id={id} name={nameOf(id)} size={24} />
                   <Text style={{ flex: 1, color: colors.text }}>{nameOf(id)}</Text>
                   <Text style={{ color: entry ? colors.danger : colors.success, fontWeight: '600' }}>
-                    {entry ? (entry.kind === 'personal' && id !== myId ? '개인 일정' : entry.title) : '가능'}
+                    {entry ? (entry.kind === 'personal' ? '개인 일정' : '수업 있음') : '가능'}
                   </Text>
                 </View>
               );
