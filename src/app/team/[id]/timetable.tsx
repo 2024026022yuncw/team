@@ -1,5 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useMemo, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { formatMin, FULL_WEEK, hourRange, TimetableGrid, WEEKDAYS_ONLY } from '@/components/TimetableGrid';
@@ -18,10 +19,22 @@ export default function TeamTimetableScreen() {
 
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   // 팀원 시간표는 과목명 없이 "바쁜 시간"만 받아옴 (DB 함수 team_busy_times)
-  const { data: intervals } = useAsync<BusyInterval[]>(
-    () => listTeamBusyTimes(teamId, weekStart),
+  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+  const { data: intervals, reload } = useAsync<BusyInterval[]>(
+    async () => {
+      const list = await listTeamBusyTimes(teamId, weekStart);
+      setUpdatedAt(new Date());
+      return list;
+    },
     [teamId, weekStart.getTime()],
     [],
+  );
+  // 사생활 보호로 팀원 변경은 실시간 알림을 받을 수 없어서, 화면을 보는 동안 15초마다 새로고침
+  useFocusEffect(
+    useCallback(() => {
+      const timer = setInterval(reload, 15_000);
+      return () => clearInterval(timer);
+    }, [reload]),
   );
 
   const included = memberIds.filter((id) => !excluded.includes(id));
@@ -40,7 +53,9 @@ export default function TeamTimetableScreen() {
       for (let slot = Math.floor(e.start / 30); slot * 30 < e.end; slot++) {
         const key = `${e.day}|${slot}`;
         if (!map.has(key)) map.set(key, new Map());
-        map.get(key)!.set(e.userId, e);
+        // 같은 칸에 수업과 개인 일정이 겹치면 개인 일정으로 표시
+        const prev = map.get(key)!.get(e.userId);
+        if (!prev || e.kind === 'personal') map.get(key)!.set(e.userId, e);
       }
     }
     return map;
@@ -95,6 +110,17 @@ export default function TeamTimetableScreen() {
         </Pressable>
         <Pressable onPress={() => { setWeekStart((w) => addDays(w, 7)); setSelected(null); }} hitSlop={12} accessibilityLabel="다음 주">
           <Ionicons name="chevron-forward" size={24} color={colors.text} />
+        </Pressable>
+      </View>
+      <View style={[styles.row, { justifyContent: 'space-between', marginBottom: 8 }]}>
+        <Text style={styles.muted}>
+          {updatedAt
+            ? `${updatedAt.getHours()}:${String(updatedAt.getMinutes()).padStart(2, '0')}:${String(updatedAt.getSeconds()).padStart(2, '0')} 기준 · 15초마다 자동 새로고침`
+            : '불러오는 중…'}
+        </Text>
+        <Pressable onPress={reload} hitSlop={10} style={[styles.row, { gap: 4 }]} accessibilityLabel="새로고침">
+          <Ionicons name="refresh" size={16} color={colors.primary} />
+          <Text style={{ color: colors.primary, fontWeight: '600' }}>새로고침</Text>
         </Pressable>
       </View>
       <Text style={[styles.sub, { marginBottom: 8 }]}>
