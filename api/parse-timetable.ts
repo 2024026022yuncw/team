@@ -94,7 +94,8 @@ export async function POST(request: Request): Promise<Response> {
   if (!image) return json({ error: '이미지가 없어요.' }, 400);
   if (image.length > MAX_BASE64_LENGTH) return json({ error: '이미지가 너무 커요. 더 작은 캡처로 시도해주세요.' }, 413);
 
-  const ai = new GoogleGenAI({ apiKey });
+  // 이미지 입력은 v1beta 에서만 지원됨 (v1 은 'image' 타입 거부)
+  const ai = new GoogleGenAI({ apiKey, apiVersion: 'v1beta' });
   try {
     const interaction = await ai.interactions.create({
       model: MODEL,
