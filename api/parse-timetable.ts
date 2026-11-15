@@ -1,8 +1,10 @@
 // Vercel 서버 함수: 시간표 이미지(에브리타임 캡처 등) → 시간표 항목 JSON
 // POST /api/parse-timetable   body: { image: base64, mediaType: "image/jpeg" | "image/png" | ... }
-// 필요 환경변수 (Vercel > Settings > Environment Variables): ANTHROPIC_API_KEY
-import Anthropic from '@anthropic-ai/sdk';
-import { betaJSONSchemaOutputFormat } from '@anthropic-ai/sdk/helpers/beta/json-schema';
+// 필요 환경변수 (Vercel > Settings > Environment Variables): GEMINI_API_KEY (Google AI Studio 무료 키)
+// 선택: GEMINI_MODEL (기본 gemini-3.8-flash)
+import { ApiError, GoogleGenAI } from '@google/genai';
+
+const MODEL = process.env.GEMINI_MODEL ?? 'gemini-3.8-flash';
 
 // 공개 값 (앱의 .env 와 동일). 로그인한 사용자만 이 API 를 쓰도록 토큰 확인에 사용
 const SUPABASE_URL = process.env.SUPABASE_URL ?? 'https://vrezbqnabniscsoqkpqi.supabase.co';
@@ -20,7 +22,7 @@ const SCHEMA = {
       items: {
         type: 'object',
         properties: {
-          day_of_week: { type: 'integer', enum: [0, 1, 2, 3, 4, 5, 6], description: '0=일 1=월 2=화 3=수 4=목 5=금 6=토' },
+          day_of_week: { type: 'integer', minimum: 0, maximum: 6, description: '0=일 1=월 2=화 3=수 4=목 5=금 6=토' },
           start: { type: 'string', description: '24시간제 HH:MM (예: 13:30)' },
           end: { type: 'string', description: '24시간제 HH:MM (예: 14:45)' },
           title: { type: 'string', description: '과목명/일정 이름' },
@@ -71,8 +73,9 @@ async function isLoggedIn(authHeader: string | null): Promise<boolean> {
 }
 
 export async function POST(request: Request): Promise<Response> {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return json({ error: '서버에 ANTHROPIC_API_KEY 가 설정되지 않았어요. Vercel 환경변수를 확인해주세요.' }, 500);
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return json({ error: '서버에 GEMINI_API_KEY 가 설정되지 않았어요. Vercel 환경변수를 확인해주세요.' }, 500);
   }
   if (!(await isLoggedIn(request.headers.get('authorization')))) {
     return json({ error: '로그인이 필요해요.' }, 401);
@@ -91,59 +94,52 @@ export async function POST(request: Request): Promise<Response> {
   if (!image) return json({ error: '이미지가 없어요.' }, 400);
   if (image.length > MAX_BASE64_LENGTH) return json({ error: '이미지가 너무 커요. 더 작은 캡처로 시도해주세요.' }, 413);
 
-  const client = new Anthropic();
+  const ai = new GoogleGenAI({ apiKey });
   try {
-    const message = await client.beta.messages.parse({
-      model: 'claude-opus-5-5',
-      max_tokens: 16000,
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
-      output_config: { effort: 'medium', format: betaJSONSchemaOutputFormat(SCHEMA) },
-      messages: [
-        {
-          role: 'user',
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: mediaType, data: image } },
-            { type: 'text', text: PROMPT },
-          ],
-        },
+    const interaction = await ai.interactions.create({
+      model: MODEL,
+      input: [
+        { type: 'text', text: PROMPT },
+        { type: 'image', data: image, mime_type: mediaType },
       ],
+      response_format: { type: 'text', mime_type: 'application/json', schema: SCHEMA },
     });
 
-    if (message.stop_reason === 'refusal') {
-      return json({ error: '이 이미지는 분석할 수 없어요. 다른 캡처로 시도해주세요.' }, 422);
-    }
-    const parsed = message.parsed_output;
-    if (!parsed) {
+    let parsed: { entries?: unknown; warning?: unknown };
+    try {
+      parsed = JSON.parse(interaction.output_text ?? '');
+    } catch {
       return json({ error: '시간표를 읽지 못했어요. 다시 시도해주세요.' }, 502);
     }
+    const rawEntries = Array.isArray(parsed.entries) ? (parsed.entries as Record<string, unknown>[]) : [];
 
-    const entries = parsed.entries
+    // AI 결과는 그대로 믿지 않고 형식·범위를 다시 검사
+    const entries = rawEntries
       .map((e) => ({
-        day_of_week: e.day_of_week,
-        start_min: toMinutes(e.start),
-        end_min: toMinutes(e.end),
-        title: e.title.trim().slice(0, 50),
-        location: e.location.trim().slice(0, 50),
+        day_of_week: Number(e.day_of_week),
+        start_min: toMinutes(String(e.start ?? '')),
+        end_min: toMinutes(String(e.end ?? '')),
+        title: String(e.title ?? '').trim().slice(0, 50),
+        location: String(e.location ?? '').trim().slice(0, 50),
       }))
       .filter(
-        (e): e is { day_of_week: 0 | 1 | 2 | 3 | 4 | 5 | 6; start_min: number; end_min: number; title: string; location: string } =>
-          e.start_min !== null && e.end_min !== null && e.end_min > e.start_min && e.title.length > 0,
+        (e): e is { day_of_week: number; start_min: number; end_min: number; title: string; location: string } =>
+          Number.isInteger(e.day_of_week) &&
+          e.day_of_week >= 0 &&
+          e.day_of_week <= 6 &&
+          e.start_min !== null &&
+          e.end_min !== null &&
+          e.end_min > e.start_min &&
+          e.title.length > 0,
       );
 
-    return json({ entries, warning: parsed.warning });
+    return json({ entries, warning: typeof parsed.warning === 'string' ? parsed.warning : '' });
   } catch (err) {
-    if (err instanceof Anthropic.AuthenticationError) {
-      return json({ error: '서버의 API 키가 올바르지 않아요.' }, 500);
-    }
-    if (err instanceof Anthropic.RateLimitError) {
-      return json({ error: '요청이 많아요. 잠시 후 다시 시도해주세요.' }, 429);
-    }
-    if (err instanceof Anthropic.BadRequestError) {
-      return json({ error: '이미지를 처리할 수 없어요. PNG/JPG 캡처인지 확인해주세요.' }, 400);
-    }
-    if (err instanceof Anthropic.APIError) {
-      return json({ error: `AI 서버 오류 (${err.status ?? '알 수 없음'})` }, 502);
+    if (err instanceof ApiError) {
+      if (err.status === 400) return json({ error: '이미지를 처리할 수 없어요. PNG/JPG 캡처인지 확인해주세요.' }, 400);
+      if (err.status === 401 || err.status === 403) return json({ error: '서버의 Gemini API 키가 올바르지 않아요.' }, 500);
+      if (err.status === 429) return json({ error: '오늘 무료 사용량을 다 썼거나 요청이 많아요. 잠시 후 다시 시도해주세요.' }, 429);
+      return json({ error: `AI 서버 오류 (${err.status})` }, 502);
     }
     console.error(err);
     return json({ error: '알 수 없는 오류가 발생했어요.' }, 500);
