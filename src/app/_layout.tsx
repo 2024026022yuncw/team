@@ -60,6 +60,7 @@ function AuthGate() {
       <Stack.Screen name="team/create" options={{ title: '새 팀 만들기', presentation: 'modal' }} />
       <Stack.Screen name="team/join" options={{ title: '초대 코드로 참여', presentation: 'modal' }} />
       <Stack.Screen name="team/[id]" options={{ headerShown: false }} />
+      <Stack.Screen name="timetable-edit" options={{ title: '시간표', presentation: 'modal' }} />
     </Stack>
   );
 }

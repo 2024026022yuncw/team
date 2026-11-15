@@ -80,3 +80,14 @@ export type DiaryNote = {
   mood: string;
   content: string;
 };
+
+export type TimetableEntry = {
+  id: string;
+  user_id: string;
+  day_of_week: number; // 0=일 1=월 ... 6=토
+  start_min: number;
+  end_min: number;
+  title: string;
+  location: string;
+  color: string;
+};

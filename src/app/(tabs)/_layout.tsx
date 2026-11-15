@@ -21,6 +21,13 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="timetable"
+        options={{
+          title: '시간표',
+          tabBarIcon: ({ color, size }) => <Ionicons name="grid" size={size} color={color as string} />,
+        }}
+      />
+      <Tabs.Screen
         name="diary"
         options={{
           title: '다이어리',

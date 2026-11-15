@@ -3,7 +3,7 @@ import { ScrollView, Text, View } from 'react-native';
 
 import { Avatar, Button, Card, Field, Input, styles } from '@/components/ui';
 import { Alert } from '@/lib/alert';
-import { updateDisplayName } from '@/lib/api';
+import { deleteMyAccount, updateDisplayName } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { errorMessage, supabase } from '@/lib/supabase';
 
@@ -11,6 +11,7 @@ export default function ProfileScreen() {
   const { session, profile, refreshProfile } = useAuth();
   const [name, setName] = useState(profile?.display_name ?? '');
   const [busy, setBusy] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => setName(profile?.display_name ?? ''), [profile?.display_name]);
 
@@ -26,6 +27,32 @@ export default function ProfileScreen() {
     } finally {
       setBusy(false);
     }
+  }
+
+  function withdraw() {
+    Alert.alert(
+      '회원탈퇴',
+      '정말 탈퇴할까요?\n\n• 다이어리, 시간표, 투표 기록이 모두 삭제돼요.\n• 내가 팀장인 팀은 가장 먼저 들어온 팀원에게 넘어가요. (혼자인 팀은 삭제)\n• 되돌릴 수 없어요.',
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '탈퇴하기',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await deleteMyAccount();
+              await supabase.auth.signOut({ scope: 'local' });
+              Alert.alert('탈퇴 완료', '그동안 이용해주셔서 감사합니다.');
+            } catch (e) {
+              Alert.alert('탈퇴 실패', errorMessage(e));
+            } finally {
+              setDeleting(false);
+            }
+          },
+        },
+      ],
+    );
   }
 
   function logout() {
@@ -56,7 +83,14 @@ export default function ProfileScreen() {
       </Card>
 
       <View style={{ marginTop: 8 }}>
-        <Button title="로그아웃" variant="danger" icon="log-out-outline" onPress={logout} />
+        <Button title="로그아웃" variant="secondary" icon="log-out-outline" onPress={logout} />
+      </View>
+
+      <View style={{ marginTop: 32, alignItems: 'center' }}>
+        <Button title="회원탈퇴" variant="ghost" onPress={withdraw} loading={deleting} style={{ height: 40 }} />
+        <Text style={[styles.muted, { textAlign: 'center' }]}>
+          탈퇴하면 다이어리·시간표·투표 기록이 모두 삭제되고 되돌릴 수 없어요.
+        </Text>
       </View>
     </ScrollView>
   );

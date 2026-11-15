@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import { ScrollView, Text, View } from 'react-native';
 
-import { Card, EmptyState, Fab, Loading, styles } from '@/components/ui';
+import { Button, Card, EmptyState, Fab, Loading, styles } from '@/components/ui';
 import { listPolls } from '@/lib/api';
 import { formatHour, formatShortDay } from '@/lib/date';
 import { useAsync, useRealtime } from '@/lib/hooks';
@@ -19,6 +19,14 @@ export function PollsTab() {
   return (
     <View style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.content}>
+        <Button
+          title="팀원 시간표 겹쳐보기"
+          icon="grid-outline"
+          variant="secondary"
+          small
+          onPress={() => router.push({ pathname: '/team/[id]/timetable', params: { id: teamId } })}
+          style={{ marginBottom: 12 }}
+        />
         {loading ? (
           <Loading />
         ) : polls.length === 0 ? (

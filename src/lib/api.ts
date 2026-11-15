@@ -9,6 +9,7 @@ import type {
   Team,
   TeamEvent,
   TeamMember,
+  TimetableEntry,
 } from './types';
 
 function check<T>(res: { data: T | null; error: unknown }): T {
@@ -248,4 +249,35 @@ export async function saveDiaryNote(userId: string, date: string, mood: string, 
 // ------------------------------------------------------------------ 프로필
 export async function updateDisplayName(userId: string, name: string) {
   check(await supabase.from('profiles').update({ display_name: name }).eq('id', userId));
+}
+
+// ------------------------------------------------------------------ 시간표
+export async function listTimetable(userIds: string[]): Promise<TimetableEntry[]> {
+  if (userIds.length === 0) return [];
+  return check(
+    await supabase.from('timetable_entries').select('*').in('user_id', userIds).order('start_min'),
+  );
+}
+
+export async function getTimetableEntry(id: string): Promise<TimetableEntry | null> {
+  return check(await supabase.from('timetable_entries').select('*').eq('id', id).maybeSingle());
+}
+
+export type TimetableInput = Pick<TimetableEntry, 'day_of_week' | 'start_min' | 'end_min' | 'title' | 'location' | 'color'>;
+
+export async function createTimetableEntries(inputs: TimetableInput[]) {
+  check(await supabase.from('timetable_entries').insert(inputs));
+}
+
+export async function updateTimetableEntry(id: string, input: TimetableInput) {
+  check(await supabase.from('timetable_entries').update(input).eq('id', id));
+}
+
+export async function deleteTimetableEntry(id: string) {
+  check(await supabase.from('timetable_entries').delete().eq('id', id));
+}
+
+// ------------------------------------------------------------------ 회원탈퇴
+export async function deleteMyAccount() {
+  check(await supabase.rpc('delete_my_account'));
 }
