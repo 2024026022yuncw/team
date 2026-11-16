@@ -153,7 +153,8 @@ export function Segmented<T extends string>({
   value,
   onChange,
 }: {
-  options: { value: T; label: string }[];
+  /** badge: 0보다 크면 라벨 옆에 빨간 숫자 표시 (예: 안 읽은 공지 수) */
+  options: { value: T; label: string; badge?: number }[];
   value: T;
   onChange: (v: T) => void;
 }) {
@@ -161,6 +162,7 @@ export function Segmented<T extends string>({
     <View style={styles.segmented}>
       {options.map((o) => {
         const active = o.value === value;
+        const badge = o.badge && o.badge > 0 ? (o.badge > 99 ? '99+' : String(o.badge)) : null;
         return (
           <Pressable
             key={o.value}
@@ -168,8 +170,16 @@ export function Segmented<T extends string>({
             style={[styles.segment, active && styles.segmentActive]}
             accessibilityRole="tab"
             accessibilityState={{ selected: active }}
+            accessibilityLabel={badge ? `${o.label}, 안 읽은 글 ${badge}개` : o.label}
           >
-            <Text style={[styles.segmentText, active && styles.segmentTextActive]}>{o.label}</Text>
+            <View style={[styles.row, { gap: 4 }]}>
+              <Text style={[styles.segmentText, active && styles.segmentTextActive]}>{o.label}</Text>
+              {badge && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{badge}</Text>
+                </View>
+              )}
+            </View>
           </Pressable>
         );
       })}
@@ -251,6 +261,16 @@ export const styles = StyleSheet.create({
   segmentActive: { backgroundColor: colors.card, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 4, elevation: 1 },
   segmentText: { fontSize: 14, color: colors.textSub, fontWeight: '600' },
   segmentTextActive: { color: colors.primary },
+  badge: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 5,
+    backgroundColor: colors.danger,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: { color: '#fff', fontSize: 11, fontWeight: '800' },
   chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1, marginRight: 8, marginBottom: 8 },
   fab: {
     position: 'absolute',

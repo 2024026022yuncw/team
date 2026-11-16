@@ -405,3 +405,21 @@ export async function listPostReads(postIds: string[]): Promise<PostRead[]> {
 export async function markPostRead(postId: string) {
   check(await supabase.from('post_reads').upsert({ post_id: postId }, { ignoreDuplicates: true }));
 }
+
+/** 팀의 안 읽은 글 수 (내가 쓴 글은 제외) */
+export async function countUnreadPosts(teamId: string, userId: string): Promise<number> {
+  const posts = check(
+    await supabase.from('team_posts').select('id, created_by').eq('team_id', teamId),
+  ) as { id: string; created_by: string | null }[];
+  const others = posts.filter((p) => p.created_by !== userId);
+  if (others.length === 0) return 0;
+  const reads = check(
+    await supabase
+      .from('post_reads')
+      .select('post_id')
+      .eq('user_id', userId)
+      .in('post_id', others.map((p) => p.id)),
+  ) as { post_id: string }[];
+  const readIds = new Set(reads.map((r) => r.post_id));
+  return others.filter((p) => !readIds.has(p.id)).length;
+}

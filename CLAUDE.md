@@ -16,13 +16,13 @@
   - Confirm email은 꺼져 있다(가입 즉시 로그인).
   - 우리는 service_role 키가 없다. DB 변경은 SQL을 만들어 주고 **사용자가 SQL Editor에서 직접 실행**한다.
 
-## DB 마이그레이션 상태 (2026-11-15 기준, 모두 실행 완료)
+## DB 마이그레이션 상태 (2026-11-16 기준, 006까지 모두 실행 완료)
 - `supabase/schema.sql`: 처음 만든 전체 스키마. 이후 마이그레이션도 끝에 덧붙여 둔다.
 - `supabase/migrations/002_account_timetable.sql`: 회원탈퇴 RPC, 시간표
 - `003_cancellations_personal.sql`: 휴강(timetable_exceptions), 개인 일정(personal_events)
 - `004_timetable_privacy.sql`: 시간표 관련 테이블은 본인만 조회. 팀원은 `team_busy_times` RPC로 바쁜 시간만(제목·장소 없이) 본다.
-- `005_team_posts.sql`: 팀 게시판(공지/회의록), 읽음 확인 — **2026-11-16 추가, 사용자 실행 필요(확인 전)**
-- `006_meeting_type.sql`: 일정에 모임 방식(오프라인/온라인), 온라인 플랫폼, 링크 + 공지↔일정 연결(event_id) — **2026-11-16 추가, 사용자 실행 필요(확인 전)**
+- `005_team_posts.sql`: 팀 게시판(공지/회의록), 읽음 확인 — 2026-11-16 실행 완료
+- `006_meeting_type.sql`: 일정에 모임 방식(오프라인/온라인), 온라인 플랫폼, 링크 + 공지↔일정 연결(event_id) — 2026-11-16 실행 완료
 - 새 마이그레이션은 `007_...sql`로 만들고 schema.sql 끝에도 덧붙인다. 실행은 사용자에게 안내한다.
 - `supabase/diagnostics/`: 읽기 전용 진단 SQL(커밋 안 함, 로컬에만 있음)
 
