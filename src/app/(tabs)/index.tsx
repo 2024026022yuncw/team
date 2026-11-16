@@ -2,12 +2,12 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import { FlatList, RefreshControl, Text, View } from 'react-native';
 
-import { CourseBadge } from '@/components/CoursePicker';
+import { TeamIcon } from '@/components/CoursePicker';
 import { Button, Card, EmptyState, Loading, styles } from '@/components/ui';
 import { listMyTeams } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useAsync } from '@/lib/hooks';
-import { colorFor, colors } from '@/lib/theme';
+import { colors } from '@/lib/theme';
 import type { Team } from '@/lib/types';
 
 export default function TeamsScreen() {
@@ -55,24 +55,16 @@ export default function TeamsScreen() {
         renderItem={({ item }) => (
           <Card onPress={() => router.push({ pathname: '/team/[id]', params: { id: item.id } })}>
             <View style={styles.row}>
-              <View
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 12,
-                  backgroundColor: colorFor(item.id),
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginRight: 12,
-                }}
-              >
-                <Text style={{ color: '#fff', fontSize: 20, fontWeight: '800' }}>{item.name.slice(0, 1)}</Text>
-              </View>
+              <TeamIcon team={item} />
               <View style={{ flex: 1 }}>
-                <CourseBadge name={item.course_name} />
                 <Text style={styles.title} numberOfLines={1}>
                   {item.name}
                 </Text>
+                {item.course_name ? (
+                  <Text style={[styles.sub, { color: colors.primary, fontWeight: '600' }]} numberOfLines={1}>
+                    📚 {item.course_name}
+                  </Text>
+                ) : null}
                 {item.description ? (
                   <Text style={styles.sub} numberOfLines={1}>
                     {item.description}

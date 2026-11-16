@@ -5,7 +5,8 @@ import { Chip, Input, styles } from '@/components/ui';
 import { listTimetable } from '@/lib/api';
 import { useUserId } from '@/lib/auth';
 import { useAsync } from '@/lib/hooks';
-import { colors } from '@/lib/theme';
+import { colorFor, colors } from '@/lib/theme';
+import type { Team } from '@/lib/types';
 
 /**
  * 팀의 수업 선택: 내 시간표 과목 버튼 / 직접 입력 / 없음
@@ -64,6 +65,50 @@ export function CoursePicker({ value, onChange }: { value: string; onChange: (v:
           시간표 탭에 수업을 등록하면 여기서 바로 고를 수 있어요.
         </Text>
       )}
+    </View>
+  );
+}
+
+/** 네모 아이콘에 넣을 짧은 과목명: 4글자까지는 그대로(2줄), 더 길면 앞 3글자 */
+export function shortCourse(name: string): string {
+  const n = name.replace(/\s+/g, '');
+  return n.length <= 4 ? n : n.slice(0, 3);
+}
+
+/**
+ * 팀 목록의 네모 아이콘. 수업이 있으면 과목명(같은 과목은 같은 색), 없으면 팀 이름 첫 글자.
+ */
+export function TeamIcon({ team, size = 52 }: { team: Pick<Team, 'id' | 'name' | 'course_name'>; size?: number }) {
+  const course = team.course_name?.trim() ?? '';
+  const label = course ? shortCourse(course) : team.name.slice(0, 1);
+  const long = label.length >= 3;
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: 12,
+        backgroundColor: colorFor(course || team.id),
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 12,
+        paddingHorizontal: 4,
+      }}
+      accessibilityLabel={course ? `수업 ${course}` : undefined}
+    >
+      <Text
+        style={{
+          color: '#fff',
+          fontWeight: '800',
+          textAlign: 'center',
+          fontSize: !course ? 22 : long ? 13 : 16,
+          lineHeight: !course ? 26 : long ? 16 : 20,
+        }}
+        numberOfLines={2}
+      >
+        {/* 4글자는 2글자씩 두 줄로 */}
+        {label.length === 4 ? `${label.slice(0, 2)}\n${label.slice(2)}` : label}
+      </Text>
     </View>
   );
 }
