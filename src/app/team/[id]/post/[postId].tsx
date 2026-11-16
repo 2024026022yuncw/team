@@ -1,11 +1,11 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { ActionSheet, type SheetAction } from '@/components/ActionSheet';
 import { KIND_META, postDate } from '@/components/team/NoticesTab';
-import { Avatar, Card, Loading, SectionTitle, styles } from '@/components/ui';
+import { Avatar, Button, Card, Loading, SectionTitle, styles } from '@/components/ui';
 import { Alert } from '@/lib/alert';
 import { deletePost, getPost, listPostReads, markPostRead, updatePost } from '@/lib/api';
 import { useUserId } from '@/lib/auth';
@@ -47,6 +47,8 @@ export default function PostScreen() {
   const canEdit = post.created_by === userId || isOwner;
   const readIds = new Set([...reads.map((r) => r.user_id), ...(post.created_by ? [post.created_by] : []), userId]);
   const readAt = new Map(reads.map((r) => [r.user_id, r.read_at]));
+  // 내용 속 링크는 누르면 열리도록 따로 모아 보여줌
+  const links = Array.from(new Set(post.content.match(/https?:\/\/[^\s)]+/g) ?? [])).slice(0, 5);
   const edited = new Date(post.updated_at).getTime() - new Date(post.created_at).getTime() > 60_000;
 
   const actions: SheetAction[] = [
@@ -122,7 +124,29 @@ export default function PostScreen() {
         <Text style={{ fontSize: 16, lineHeight: 26, color: colors.text }} selectable>
           {post.content || '(내용 없음)'}
         </Text>
+        {links.length > 0 && (
+          <View style={{ marginTop: 12, gap: 6 }}>
+            {links.map((url) => (
+              <Pressable key={url} onPress={() => Linking.openURL(url)} style={[styles.row, { gap: 6 }]}>
+                <Ionicons name="link" size={16} color={colors.primary} />
+                <Text style={{ color: colors.primary, fontWeight: '600', flex: 1 }} numberOfLines={1}>
+                  {url}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
       </Card>
+      {post.event_id && (
+        <Button
+          title="캘린더에서 일정 보기"
+          icon="calendar-outline"
+          variant="secondary"
+          small
+          onPress={() => router.push({ pathname: '/team/[id]/event', params: { id: teamId, eventId: post.event_id! } })}
+          style={{ marginBottom: 8 }}
+        />
+      )}
 
       <SectionTitle>
         👀 읽음 {readIds.size}/{members.length}

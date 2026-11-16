@@ -89,10 +89,19 @@ export async function getEvent(id: string): Promise<TeamEvent | null> {
   return check(await supabase.from('events').select('*').eq('id', id).maybeSingle());
 }
 
-export type EventInput = Pick<TeamEvent, 'title' | 'description' | 'location' | 'starts_at' | 'ends_at'>;
+export type EventInput = Pick<
+  TeamEvent,
+  'title' | 'description' | 'location' | 'starts_at' | 'ends_at' | 'meeting_type' | 'online_platform' | 'meeting_link'
+>;
 
-export async function createEvent(teamId: string, userId: string, input: EventInput) {
-  check(await supabase.from('events').insert({ ...input, team_id: teamId, created_by: userId }));
+export async function createEvent(teamId: string, userId: string, input: EventInput): Promise<TeamEvent> {
+  return check(
+    await supabase
+      .from('events')
+      .insert({ ...input, team_id: teamId, created_by: userId })
+      .select('*')
+      .single(),
+  );
 }
 
 export async function updateEvent(id: string, input: EventInput) {
@@ -365,7 +374,11 @@ export async function getPost(id: string): Promise<TeamPost | null> {
 
 export type PostInput = Pick<TeamPost, 'kind' | 'title' | 'content' | 'meeting_date' | 'pinned'>;
 
-export async function createPost(teamId: string, userId: string, input: PostInput): Promise<TeamPost> {
+export async function createPost(
+  teamId: string,
+  userId: string,
+  input: PostInput & { event_id?: string | null },
+): Promise<TeamPost> {
   return check(
     await supabase
       .from('team_posts')

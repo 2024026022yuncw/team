@@ -1,13 +1,14 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { MonthCalendar } from '@/components/MonthCalendar';
 import { Card, EmptyState, Fab, SectionTitle, styles } from '@/components/ui';
 import { listEvents } from '@/lib/api';
 import { addDays, formatDay, formatTime, monthGrid, toDateKey, todayKey } from '@/lib/date';
 import { useAsync, useRealtime } from '@/lib/hooks';
+import { isUrl, meetingSummary } from '@/lib/meeting';
 import { useTeam } from '@/lib/team-context';
 import { colorFor, colors } from '@/lib/theme';
 import type { TeamEvent } from '@/lib/types';
@@ -94,11 +95,19 @@ export function CalendarTab() {
                       )} ${formatTime(e.ends_at)}`}
                 </Text>
               </View>
-              {e.location ? (
-                <View style={[styles.row, { marginTop: 4, gap: 4 }]}>
-                  <Ionicons name="location-outline" size={14} color={colors.textSub} />
-                  <Text style={styles.sub}>{e.location}</Text>
-                </View>
+              {meetingSummary(e) ? <Text style={[styles.sub, { marginTop: 4 }]}>{meetingSummary(e)}</Text> : null}
+              {e.meeting_type === 'online' && e.meeting_link ? (
+                isUrl(e.meeting_link) ? (
+                  <Pressable onPress={() => Linking.openURL(e.meeting_link)} hitSlop={6} style={{ marginTop: 4 }}>
+                    <Text style={{ color: colors.primary, fontWeight: '600' }} numberOfLines={1}>
+                      🔗 접속하기
+                    </Text>
+                  </Pressable>
+                ) : (
+                  <Text style={[styles.muted, { marginTop: 4 }]} numberOfLines={1}>
+                    🔗 {e.meeting_link}
+                  </Text>
+                )
               ) : null}
               <Text style={[styles.muted, { marginTop: 6 }]}>등록: {nameOf(e.created_by)}</Text>
             </Card>

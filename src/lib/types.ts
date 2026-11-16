@@ -29,6 +29,9 @@ export type TeamEvent = {
   location: string;
   starts_at: string;
   ends_at: string;
+  meeting_type: 'offline' | 'online' | null; // null = 모임 아님 (마감 등)
+  online_platform: string;
+  meeting_link: string;
   created_by: string | null;
 };
 
@@ -119,6 +122,7 @@ export type TeamPost = {
   content: string;
   meeting_date: string | null;
   pinned: boolean;
+  event_id: string | null; // 일정에서 올린 공지면 연결된 일정
   created_by: string | null;
   created_at: string;
   updated_at: string;
