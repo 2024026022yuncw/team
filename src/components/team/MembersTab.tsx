@@ -6,7 +6,8 @@ import { Modal, Platform, Pressable, ScrollView, Share, Text, View } from 'react
 
 import { Avatar, Button, Card, Chip, Input, SectionTitle, styles } from '@/components/ui';
 import { Alert } from '@/lib/alert';
-import { deleteTeam, removeMember, updateRoleTitle } from '@/lib/api';
+import { CoursePicker } from '@/components/CoursePicker';
+import { deleteTeam, removeMember, updateRoleTitle, updateTeam } from '@/lib/api';
 import { useUserId } from '@/lib/auth';
 import { errorMessage } from '@/lib/supabase';
 import { useTeam } from '@/lib/team-context';
@@ -21,8 +22,20 @@ export function MembersTab() {
   const { team, members, nameOf, isOwner, reload } = useTeam();
   const [editing, setEditing] = useState<TeamMember | null>(null);
   const [roleText, setRoleText] = useState('');
+  const [courseOpen, setCourseOpen] = useState(false);
+  const [courseText, setCourseText] = useState('');
 
   if (!team) return null;
+
+  async function saveCourse() {
+    try {
+      await updateTeam(team!.id, { course_name: courseText.trim() });
+      setCourseOpen(false);
+      reload();
+    } catch (e) {
+      Alert.alert('저장 실패', errorMessage(e));
+    }
+  }
 
   async function copyCode() {
     await Clipboard.setStringAsync(team!.invite_code);
@@ -121,7 +134,29 @@ export function MembersTab() {
         </View>
       </Card>
 
-      {team.description ? <Text style={[styles.sub, { marginBottom: 8 }]}>{team.description}</Text> : null}
+      {/* 이 팀플의 수업 */}
+      <Card style={{ paddingVertical: 12 }}>
+        <View style={[styles.row, { justifyContent: 'space-between', gap: 8 }]}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.muted}>수업</Text>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: team.course_name ? colors.text : colors.textMuted, marginTop: 2 }}>
+              {team.course_name ? `📚 ${team.course_name}` : '지정 안 됨'}
+            </Text>
+          </View>
+          {isOwner && (
+            <Button
+              title={team.course_name ? '변경' : '지정'}
+              variant="secondary"
+              small
+              onPress={() => {
+                setCourseText(team.course_name);
+                setCourseOpen(true);
+              }}
+            />
+          )}
+        </View>
+        {team.description ? <Text style={[styles.sub, { marginTop: 8 }]}>{team.description}</Text> : null}
+      </Card>
 
       <SectionTitle>멤버 {members.length}명</SectionTitle>
       {members.map((m) => (
@@ -175,6 +210,24 @@ export function MembersTab() {
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
               <Button title="취소" variant="secondary" onPress={() => setEditing(null)} style={{ flex: 1 }} />
               <Button title="저장" onPress={saveRole} style={{ flex: 1 }} />
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* 수업 지정/변경 (팀장) */}
+      <Modal visible={courseOpen} transparent animationType="fade" onRequestClose={() => setCourseOpen(false)}>
+        <Pressable
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 24 }}
+          onPress={() => setCourseOpen(false)}
+        >
+          <Pressable style={{ backgroundColor: colors.card, borderRadius: radius.lg, padding: 20 }} onPress={() => {}}>
+            <Text style={[styles.title, { marginBottom: 4 }]}>어떤 수업의 팀플인가요?</Text>
+            <Text style={[styles.muted, { marginBottom: 12 }]}>내 시간표의 과목을 고르거나 직접 입력하세요.</Text>
+            <CoursePicker value={courseText} onChange={setCourseText} />
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+              <Button title="취소" variant="secondary" onPress={() => setCourseOpen(false)} style={{ flex: 1 }} />
+              <Button title="저장" onPress={saveCourse} style={{ flex: 1 }} />
             </View>
           </Pressable>
         </Pressable>

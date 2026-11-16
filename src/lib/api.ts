@@ -39,7 +39,7 @@ export async function joinTeam(code: string): Promise<Team> {
   return check(await supabase.rpc('join_team', { p_code: code }).single<Team>());
 }
 
-export async function updateTeam(teamId: string, patch: Partial<Pick<Team, 'name' | 'description'>>) {
+export async function updateTeam(teamId: string, patch: Partial<Pick<Team, 'name' | 'description' | 'course_name'>>) {
   check(await supabase.from('teams').update(patch).eq('id', teamId));
 }
 

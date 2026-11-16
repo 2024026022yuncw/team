@@ -2,6 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import { FlatList, RefreshControl, Text, View } from 'react-native';
 
+import { CourseBadge } from '@/components/CoursePicker';
 import { Button, Card, EmptyState, Loading, styles } from '@/components/ui';
 import { listMyTeams } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -68,6 +69,7 @@ export default function TeamsScreen() {
                 <Text style={{ color: '#fff', fontSize: 20, fontWeight: '800' }}>{item.name.slice(0, 1)}</Text>
               </View>
               <View style={{ flex: 1 }}>
+                <CourseBadge name={item.course_name} />
                 <Text style={styles.title} numberOfLines={1}>
                   {item.name}
                 </Text>

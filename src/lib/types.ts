@@ -7,6 +7,7 @@ export type Team = {
   id: string;
   name: string;
   description: string;
+  course_name: string; // 이 팀플의 수업 (없으면 빈 문자열)
   invite_code: string;
   owner_id: string;
   created_at: string;
