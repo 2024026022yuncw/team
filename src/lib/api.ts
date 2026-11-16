@@ -10,6 +10,8 @@ import type {
   TeamEvent,
   TeamMember,
   PersonalEvent,
+  PostRead,
+  TeamPost,
   TimetableEntry,
   TimetableException,
 } from './types';
@@ -343,4 +345,50 @@ export async function deletePersonalEvent(id: string) {
 /** 내 시간표 전체 삭제 (이미지로 덮어쓰기용) */
 export async function deleteMyTimetable(userId: string) {
   check(await supabase.from('timetable_entries').delete().eq('user_id', userId));
+}
+
+// ------------------------------------------------------------------ 공지 / 회의록
+export async function listPosts(teamId: string): Promise<TeamPost[]> {
+  return check(
+    await supabase
+      .from('team_posts')
+      .select('*')
+      .eq('team_id', teamId)
+      .order('pinned', { ascending: false })
+      .order('created_at', { ascending: false }),
+  );
+}
+
+export async function getPost(id: string): Promise<TeamPost | null> {
+  return check(await supabase.from('team_posts').select('*').eq('id', id).maybeSingle());
+}
+
+export type PostInput = Pick<TeamPost, 'kind' | 'title' | 'content' | 'meeting_date' | 'pinned'>;
+
+export async function createPost(teamId: string, userId: string, input: PostInput): Promise<TeamPost> {
+  return check(
+    await supabase
+      .from('team_posts')
+      .insert({ ...input, team_id: teamId, created_by: userId })
+      .select('*')
+      .single(),
+  );
+}
+
+export async function updatePost(id: string, input: Partial<PostInput>) {
+  check(await supabase.from('team_posts').update(input).eq('id', id));
+}
+
+export async function deletePost(id: string) {
+  check(await supabase.from('team_posts').delete().eq('id', id));
+}
+
+/** 팀의 모든 글 읽음 기록 (목록의 "N명 읽음"/새 글 표시용) */
+export async function listPostReads(postIds: string[]): Promise<PostRead[]> {
+  if (postIds.length === 0) return [];
+  return check(await supabase.from('post_reads').select('*').in('post_id', postIds));
+}
+
+export async function markPostRead(postId: string) {
+  check(await supabase.from('post_reads').upsert({ post_id: postId }, { ignoreDuplicates: true }));
 }

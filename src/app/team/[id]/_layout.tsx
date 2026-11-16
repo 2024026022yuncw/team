@@ -22,6 +22,8 @@ export default function TeamLayout() {
         <Stack.Screen name="poll/[pollId]" options={{ title: '가능 시간 투표' }} />
         <Stack.Screen name="task" options={{ title: '할 일', presentation: 'modal' }} />
         <Stack.Screen name="timetable" options={{ title: '팀원 시간표 겹쳐보기' }} />
+        <Stack.Screen name="post/[postId]" options={{ title: '공지' }} />
+        <Stack.Screen name="post-edit" options={{ title: '새 글', presentation: 'modal' }} />
       </Stack>
     </TeamProvider>
   );

@@ -4,16 +4,18 @@ import { View } from 'react-native';
 
 import { CalendarTab } from '@/components/team/CalendarTab';
 import { MembersTab } from '@/components/team/MembersTab';
+import { NoticesTab } from '@/components/team/NoticesTab';
 import { PollsTab } from '@/components/team/PollsTab';
 import { TasksTab } from '@/components/team/TasksTab';
 import { Loading, Segmented, styles } from '@/components/ui';
 import { useTeam } from '@/lib/team-context';
 
-type Tab = 'calendar' | 'polls' | 'tasks' | 'members';
+type Tab = 'notices' | 'calendar' | 'polls' | 'tasks' | 'members';
 
 const TABS: { value: Tab; label: string }[] = [
+  { value: 'notices', label: '공지' },
   { value: 'calendar', label: '캘린더' },
-  { value: 'polls', label: '시간투표' },
+  { value: 'polls', label: '투표' },
   { value: 'tasks', label: '할 일' },
   { value: 'members', label: '멤버' },
 ];
@@ -33,6 +35,7 @@ export default function TeamScreen() {
         <Loading />
       ) : (
         <View style={{ flex: 1 }}>
+          {tab === 'notices' && <NoticesTab />}
           {tab === 'calendar' && <CalendarTab />}
           {tab === 'polls' && <PollsTab />}
           {tab === 'tasks' && <TasksTab />}

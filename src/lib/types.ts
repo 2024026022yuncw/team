@@ -108,3 +108,24 @@ export type PersonalEvent = {
   location: string;
   color: string;
 };
+
+export type PostKind = 'notice' | 'minutes';
+
+export type TeamPost = {
+  id: string;
+  team_id: string;
+  kind: PostKind;
+  title: string;
+  content: string;
+  meeting_date: string | null;
+  pinned: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PostRead = {
+  post_id: string;
+  user_id: string;
+  read_at: string;
+};
