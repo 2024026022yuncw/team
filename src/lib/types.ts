@@ -158,3 +158,13 @@ export type TeamInvite = {
   inviter_name: string;
   created_at: string;
 };
+
+export type TeamDraw = {
+  id: string;
+  team_id: string;
+  title: string;
+  participants: string[];
+  winners: string[];
+  created_by: string | null;
+  created_at: string;
+};

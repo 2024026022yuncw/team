@@ -57,7 +57,11 @@ export function TasksTab() {
   return (
     <View style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.content}>
-        <SectionTitle>역할 분담 현황</SectionTitle>
+        <SectionTitle
+          right={<Chip label="🎲 랜덤 뽑기" onPress={() => router.push({ pathname: '/team/[id]/draw', params: { id: teamId } })} />}
+        >
+          역할 분담 현황
+        </SectionTitle>
         <Card>
           {progress.map(({ member, total, done }) => (
             <View key={member.user_id} style={[styles.row, { marginBottom: 10, gap: 10 }]}>

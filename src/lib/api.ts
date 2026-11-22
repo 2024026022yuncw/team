@@ -7,6 +7,7 @@ import type {
   Task,
   TaskStatus,
   Team,
+  TeamDraw,
   TeamEvent,
   TeamMember,
   FriendItem,
@@ -520,4 +521,23 @@ export async function listMyTeammates(userId: string): Promise<{ userId: string;
       teamNames: others.filter((r) => r.user_id === id).map((r) => teamName.get(r.team_id) ?? ''),
     }))
     .sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+}
+
+// ------------------------------------------------------------------ 랜덤 뽑기
+export async function runTeamDraw(teamId: string, title: string, participants: string[], count: number): Promise<TeamDraw> {
+  return check(
+    await supabase
+      .rpc('run_team_draw', { p_team_id: teamId, p_title: title, p_participants: participants, p_count: count })
+      .single<TeamDraw>(),
+  );
+}
+
+export async function listTeamDraws(teamId: string): Promise<TeamDraw[]> {
+  return check(
+    await supabase.from('team_draws').select('*').eq('team_id', teamId).order('created_at', { ascending: false }).limit(20),
+  );
+}
+
+export async function deleteTeamDraw(id: string) {
+  check(await supabase.from('team_draws').delete().eq('id', id));
 }

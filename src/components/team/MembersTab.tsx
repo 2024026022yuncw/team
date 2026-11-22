@@ -247,13 +247,21 @@ export function MembersTab() {
         </Card>
       ))}
 
-      <Button
-        title="친구를 팀에 초대"
-        icon="person-add-outline"
-        variant="secondary"
-        onPress={() => setInviteOpen(true)}
-        style={{ marginTop: 4 }}
-      />
+      <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
+        <Button
+          title="친구 초대"
+          icon="person-add-outline"
+          variant="secondary"
+          onPress={() => setInviteOpen(true)}
+          style={{ flex: 1 }}
+        />
+        <Button
+          title="🎲 발표자 뽑기"
+          variant="secondary"
+          onPress={() => router.push({ pathname: '/team/[id]/draw', params: { id: team.id } })}
+          style={{ flex: 1 }}
+        />
+      </View>
 
       <Button
         title={isOwner ? '팀 삭제' : '팀 나가기'}
