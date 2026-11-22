@@ -7,12 +7,22 @@ import { Modal, Platform, Pressable, ScrollView, Share, Text, View } from 'react
 import { Avatar, Button, Card, Chip, Input, SectionTitle, styles } from '@/components/ui';
 import { Alert } from '@/lib/alert';
 import { CoursePicker } from '@/components/CoursePicker';
-import { deleteTeam, removeMember, updateRoleTitle, updateTeam } from '@/lib/api';
+import {
+  deleteTeam,
+  inviteFriendToTeam,
+  listFriendships,
+  listTeamPendingInvitees,
+  removeMember,
+  sendFriendRequest,
+  updateRoleTitle,
+  updateTeam,
+} from '@/lib/api';
 import { useUserId } from '@/lib/auth';
+import { useAsync } from '@/lib/hooks';
 import { errorMessage } from '@/lib/supabase';
 import { useTeam } from '@/lib/team-context';
 import { colors, radius } from '@/lib/theme';
-import type { TeamMember } from '@/lib/types';
+import type { FriendItem, TeamMember } from '@/lib/types';
 
 const ROLE_PRESETS = ['팀장', '발표', '자료조사', 'PPT', '보고서', '개발', '디자인', '회의록'];
 
@@ -24,8 +34,47 @@ export function MembersTab() {
   const [roleText, setRoleText] = useState('');
   const [courseOpen, setCourseOpen] = useState(false);
   const [courseText, setCourseText] = useState('');
+  const [inviteOpen, setInviteOpen] = useState(false);
+
+  // 친구 관계 (팀원 옆 "+친구" 버튼, 친구 초대 목록용)
+  const { data: friendships, reload: reloadFriends } = useAsync<FriendItem[]>(() => listFriendships(userId), [userId], []);
+  const { data: pendingInvitees, reload: reloadInvitees } = useAsync<string[]>(
+    () => (team ? listTeamPendingInvitees(team.id) : Promise.resolve([])),
+    [team?.id],
+    [],
+  );
+  const relation = new Map(friendships.map((f) => [f.otherId, f]));
+  const memberIds = new Set(members.map((m) => m.user_id));
+  const invitableFriends = friendships.filter((f) => f.status === 'accepted' && !memberIds.has(f.otherId));
 
   if (!team) return null;
+
+  async function addFriend(m: TeamMember) {
+    try {
+      const result = await sendFriendRequest({ userId: m.user_id });
+      Alert.alert(
+        '친구 요청',
+        result === 'accepted'
+          ? `${nameOf(m.user_id)} 님과 친구가 됐어요! 🎉`
+          : result === 'already_friends'
+            ? '이미 친구예요.'
+            : `${nameOf(m.user_id)} 님에게 친구 요청을 보냈어요.`,
+      );
+      reloadFriends();
+    } catch (e) {
+      Alert.alert('실패', errorMessage(e));
+    }
+  }
+
+  async function inviteFriend(f: FriendItem) {
+    try {
+      await inviteFriendToTeam(team!.id, f.otherId);
+      reloadInvitees();
+      Alert.alert('초대 완료', `${f.otherName} 님에게 팀 초대를 보냈어요. 수락하면 팀원이 돼요.`);
+    } catch (e) {
+      Alert.alert('초대 실패', errorMessage(e));
+    }
+  }
 
   async function saveCourse() {
     try {
@@ -175,6 +224,20 @@ export function MembersTab() {
                 </Text>
               </Pressable>
             </View>
+            {m.user_id !== userId &&
+              (() => {
+                const rel = relation.get(m.user_id);
+                if (rel?.status === 'accepted') return <Text style={styles.muted}>💛 친구</Text>;
+                if (rel?.direction === 'sent') return <Text style={styles.muted}>요청함</Text>;
+                return (
+                  <Button
+                    title={rel?.direction === 'received' ? '수락' : '+친구'}
+                    small
+                    variant="secondary"
+                    onPress={() => addFriend(m)}
+                  />
+                );
+              })()}
             {isOwner && m.user_id !== userId ? (
               <Pressable onPress={() => kick(m)} hitSlop={10} accessibilityLabel="멤버 내보내기">
                 <Ionicons name="person-remove-outline" size={20} color={colors.textMuted} />
@@ -183,6 +246,14 @@ export function MembersTab() {
           </View>
         </Card>
       ))}
+
+      <Button
+        title="친구를 팀에 초대"
+        icon="person-add-outline"
+        variant="secondary"
+        onPress={() => setInviteOpen(true)}
+        style={{ marginTop: 4 }}
+      />
 
       <Button
         title={isOwner ? '팀 삭제' : '팀 나가기'}
@@ -211,6 +282,42 @@ export function MembersTab() {
               <Button title="취소" variant="secondary" onPress={() => setEditing(null)} style={{ flex: 1 }} />
               <Button title="저장" onPress={saveRole} style={{ flex: 1 }} />
             </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* 친구 초대 */}
+      <Modal visible={inviteOpen} transparent animationType="fade" onRequestClose={() => setInviteOpen(false)}>
+        <Pressable
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 24 }}
+          onPress={() => setInviteOpen(false)}
+        >
+          <Pressable style={{ backgroundColor: colors.card, borderRadius: radius.lg, padding: 20, maxHeight: '80%' }} onPress={() => {}}>
+            <Text style={[styles.title, { marginBottom: 4 }]}>친구를 팀에 초대</Text>
+            <Text style={[styles.muted, { marginBottom: 12 }]}>초대받은 친구가 수락하면 팀원이 돼요.</Text>
+            <ScrollView style={{ maxHeight: 360 }}>
+              {invitableFriends.length === 0 ? (
+                <Text style={[styles.sub, { paddingVertical: 12 }]}>
+                  초대할 수 있는 친구가 없어요. 친구 탭에서 친구를 추가해보세요.
+                </Text>
+              ) : (
+                invitableFriends.map((f) => {
+                  const invited = pendingInvitees.includes(f.otherId);
+                  return (
+                    <View key={f.id} style={[styles.row, { gap: 12, paddingVertical: 8 }]}>
+                      <Avatar id={f.otherId} name={f.otherName} size={34} />
+                      <Text style={{ flex: 1, fontSize: 16, color: colors.text }}>{f.otherName}</Text>
+                      {invited ? (
+                        <Text style={styles.muted}>초대함</Text>
+                      ) : (
+                        <Button title="초대" small onPress={() => inviteFriend(f)} />
+                      )}
+                    </View>
+                  );
+                })
+              )}
+            </ScrollView>
+            <Button title="닫기" variant="secondary" onPress={() => setInviteOpen(false)} style={{ marginTop: 12 }} />
           </Pressable>
         </Pressable>
       </Modal>

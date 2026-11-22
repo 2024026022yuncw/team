@@ -9,8 +9,11 @@ import type {
   Team,
   TeamEvent,
   TeamMember,
+  FriendItem,
+  Friendship,
   PersonalEvent,
   PostRead,
+  TeamInvite,
   TeamPost,
   TimetableEntry,
   TimetableException,
@@ -422,4 +425,99 @@ export async function countUnreadPosts(teamId: string, userId: string): Promise<
   ) as { post_id: string }[];
   const readIds = new Set(reads.map((r) => r.post_id));
   return others.filter((p) => !readIds.has(p.id)).length;
+}
+
+// ------------------------------------------------------------------ 친구
+export async function myFriendCode(): Promise<string> {
+  return check(await supabase.rpc('my_friend_code')) as string;
+}
+
+/** 결과: requested | accepted(상대가 먼저 요청해서 바로 친구) | already_requested | already_friends */
+export async function sendFriendRequest(target: { code?: string; userId?: string }): Promise<string> {
+  return check(
+    await supabase.rpc('send_friend_request', {
+      p_code: target.code ?? null,
+      p_user: target.userId ?? null,
+    }),
+  ) as string;
+}
+
+export async function acceptFriendRequest(id: string) {
+  check(await supabase.rpc('accept_friend_request', { p_id: id }));
+}
+
+/** 친구 끊기 / 보낸 요청 취소 / 받은 요청 거절 */
+export async function removeFriendship(id: string) {
+  check(await supabase.from('friendships').delete().eq('id', id));
+}
+
+export async function listFriendships(userId: string): Promise<FriendItem[]> {
+  const rows = check(
+    await supabase.from('friendships').select('*').order('created_at', { ascending: false }),
+  ) as Friendship[];
+  const otherIds = rows.map((r) => (r.requester === userId ? r.addressee : r.requester));
+  const profiles = otherIds.length
+    ? (check(await supabase.from('profiles').select('id, display_name').in('id', otherIds)) as {
+        id: string;
+        display_name: string;
+      }[])
+    : [];
+  const names = new Map(profiles.map((p) => [p.id, p.display_name]));
+  return rows.map((r) => {
+    const otherId = r.requester === userId ? r.addressee : r.requester;
+    return {
+      ...r,
+      otherId,
+      otherName: names.get(otherId) || '이름 없음',
+      direction: r.requester === userId ? ('sent' as const) : ('received' as const),
+    };
+  });
+}
+
+// ------------------------------------------------------------------ 팀 초대
+export async function inviteFriendToTeam(teamId: string, friendId: string) {
+  check(await supabase.rpc('invite_friend_to_team', { p_team_id: teamId, p_friend: friendId }));
+}
+
+export async function listMyTeamInvites(): Promise<TeamInvite[]> {
+  return check(await supabase.rpc('my_team_invites')) as TeamInvite[];
+}
+
+export async function acceptTeamInvite(id: string): Promise<string> {
+  return check(await supabase.rpc('accept_team_invite', { p_id: id })) as string;
+}
+
+export async function declineTeamInvite(id: string) {
+  check(await supabase.from('team_invites').delete().eq('id', id));
+}
+
+/** 팀에 보낸(아직 수락 안 된) 초대 대상 */
+export async function listTeamPendingInvitees(teamId: string): Promise<string[]> {
+  const rows = check(await supabase.from('team_invites').select('invitee').eq('team_id', teamId)) as {
+    invitee: string;
+  }[];
+  return rows.map((r) => r.invitee);
+}
+
+/** 내가 속한 모든 팀의 팀원(나 제외) — 친구 탭의 "같은 팀원" 목록용 */
+export async function listMyTeammates(userId: string): Promise<{ userId: string; name: string; teamNames: string[] }[]> {
+  // RLS 로 내가 속한 팀의 멤버만 조회됨
+  const rows = check(await supabase.from('team_members').select('team_id, user_id')) as { team_id: string; user_id: string }[];
+  const others = rows.filter((r) => r.user_id !== userId);
+  if (others.length === 0) return [];
+  const teamIds = Array.from(new Set(others.map((r) => r.team_id)));
+  const userIds = Array.from(new Set(others.map((r) => r.user_id)));
+  const [teams, profiles] = await Promise.all([
+    supabase.from('teams').select('id, name').in('id', teamIds),
+    supabase.from('profiles').select('id, display_name').in('id', userIds),
+  ]);
+  const teamName = new Map((check(teams) as { id: string; name: string }[]).map((t) => [t.id, t.name]));
+  const userName = new Map((check(profiles) as { id: string; display_name: string }[]).map((p) => [p.id, p.display_name]));
+  return userIds
+    .map((id) => ({
+      userId: id,
+      name: userName.get(id) || '이름 없음',
+      teamNames: others.filter((r) => r.user_id === id).map((r) => teamName.get(r.team_id) ?? ''),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'ko'));
 }

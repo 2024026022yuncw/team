@@ -134,3 +134,27 @@ export type PostRead = {
   user_id: string;
   read_at: string;
 };
+
+export type Friendship = {
+  id: string;
+  requester: string;
+  addressee: string;
+  status: 'pending' | 'accepted';
+  created_at: string;
+};
+
+/** 화면용: 상대방 기준으로 정리한 친구/요청 */
+export type FriendItem = Friendship & {
+  otherId: string;
+  otherName: string;
+  direction: 'sent' | 'received';
+};
+
+export type TeamInvite = {
+  id: string;
+  team_id: string;
+  team_name: string;
+  course_name: string;
+  inviter_name: string;
+  created_at: string;
+};

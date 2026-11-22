@@ -35,6 +35,13 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="friends"
+        options={{
+          title: '친구',
+          tabBarIcon: ({ color, size }) => <Ionicons name="heart" size={size} color={color as string} />,
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: '내 정보',
