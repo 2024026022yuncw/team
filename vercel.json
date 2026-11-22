@@ -4,6 +4,9 @@
   "functions": {
     "api/parse-timetable.ts": {
       "maxDuration": 300
+    },
+    "api/assistant.ts": {
+      "maxDuration": 60
     }
   },
   "rewrites": [

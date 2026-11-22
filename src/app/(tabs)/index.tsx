@@ -80,6 +80,18 @@ export default function TeamsScreen() {
               />
             </View>
 
+            {/* AI 비서 */}
+            <Card onPress={() => router.push('/assistant')} style={{ marginTop: 12, backgroundColor: colors.primarySoft, borderColor: colors.primarySoft }}>
+              <View style={[styles.row, { gap: 10 }]}>
+                <Text style={{ fontSize: 26 }}>🤖</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontWeight: '700', color: colors.primary }}>AI 비서에게 물어보기</Text>
+                  <Text style={styles.muted}>“오늘 일정 뭐야?” “이번 주 마감 할 일은?”</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+              </View>
+            </Card>
+
             {/* 친구가 보낸 팀 초대 */}
             {invites.map((inv) => (
               <Card key={inv.id} style={{ marginTop: 12, borderColor: colors.primary, borderWidth: 1.5 }}>

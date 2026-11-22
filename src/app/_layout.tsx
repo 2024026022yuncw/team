@@ -62,6 +62,7 @@ function AuthGate() {
       <Stack.Screen name="team/[id]" options={{ headerShown: false }} />
       <Stack.Screen name="timetable-edit" options={{ title: '시간표', presentation: 'modal' }} />
       <Stack.Screen name="timetable-import" options={{ title: '이미지로 불러오기' }} />
+      <Stack.Screen name="assistant" options={{ title: '🤖 AI 비서' }} />
     </Stack>
   );
 }
