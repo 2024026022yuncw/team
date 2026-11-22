@@ -6,16 +6,18 @@ import { Modal, Platform, Pressable, ScrollView, Share, Text, View } from 'react
 
 import { Avatar, Button, Card, Chip, Input, SectionTitle, styles } from '@/components/ui';
 import { Alert } from '@/lib/alert';
-import { CoursePicker, CourseShortField, TeamIcon } from '@/components/CoursePicker';
+import { COURSE_SHORT_MAX, CoursePicker, CourseShortField, shortCourse, TeamIcon } from '@/components/CoursePicker';
 import {
   deleteTeam,
   inviteFriendToTeam,
   listFriendships,
   listTeamPendingInvitees,
   removeMember,
+  listMyCourseShorts,
   sendFriendRequest,
-  setTeamCourse,
+  setMyCourseShort,
   updateRoleTitle,
+  updateTeam,
 } from '@/lib/api';
 import { useUserId } from '@/lib/auth';
 import { useAsync } from '@/lib/hooks';
@@ -48,6 +50,17 @@ export function MembersTab() {
   const memberIds = new Set(members.map((m) => m.user_id));
   const invitableFriends = friendships.filter((f) => f.status === 'accepted' && !memberIds.has(f.otherId));
 
+  // 나만 보이는 약칭
+  const [myShortOpen, setMyShortOpen] = useState(false);
+  const [myShortText, setMyShortText] = useState('');
+  const { data: myShorts, reload: reloadMyShort } = useAsync<Map<string, string>>(
+    () => listMyCourseShorts(),
+    [team?.id],
+    new Map(),
+  );
+  const myShort = (team && myShorts.get(team.id)) || '';
+  const teamDefaultShort = team?.course_name ? team.course_short?.trim() || shortCourse(team.course_name) : '';
+
   if (!team) return null;
 
   async function addFriend(m: TeamMember) {
@@ -77,11 +90,25 @@ export function MembersTab() {
     }
   }
 
+  // 수업·팀 기본 약칭 (팀장만, teams 정책)
   async function saveCourse() {
     try {
-      await setTeamCourse(team!.id, courseText.trim(), courseShortText.trim());
+      const name = courseText.trim();
+      await updateTeam(team!.id, { course_name: name, course_short: name ? courseShortText.trim() : '' });
       setCourseOpen(false);
       reload();
+    } catch (e) {
+      Alert.alert('저장 실패', errorMessage(e));
+    }
+  }
+
+  // 나만 보이는 약칭 (비우면 팀 기본으로)
+  async function saveMyShort(value: string) {
+    try {
+      const v = value.trim() === teamDefaultShort ? '' : value;
+      await setMyCourseShort(userId, team!.id, v);
+      setMyShortOpen(false);
+      reloadMyShort();
     } catch (e) {
       Alert.alert('저장 실패', errorMessage(e));
     }
@@ -187,25 +214,45 @@ export function MembersTab() {
       {/* 이 팀플의 수업 */}
       <Card style={{ paddingVertical: 12 }}>
         <View style={[styles.row, { justifyContent: 'space-between', gap: 8 }]}>
-          {team.course_name ? <TeamIcon team={team} size={40} /> : null}
+          {team.course_name ? <TeamIcon team={{ ...team, my_course_short: myShort }} size={40} /> : null}
           <View style={{ flex: 1 }}>
             <Text style={styles.muted}>수업</Text>
             <Text style={{ fontSize: 16, fontWeight: '700', color: team.course_name ? colors.text : colors.textMuted, marginTop: 2 }}>
               {team.course_name ? `📚 ${team.course_name}` : '지정 안 됨'}
             </Text>
           </View>
-          {/* 수업·약칭은 팀원 누구나 변경 가능 (서버 함수 set_team_course 에서 멤버 확인) */}
-          <Button
-            title={team.course_name ? '변경' : '지정'}
-            variant="secondary"
-            small
-            onPress={() => {
-              setCourseText(team.course_name);
-              setCourseShortText(team.course_short ?? '');
-              setCourseOpen(true);
-            }}
-          />
+          {/* 수업·팀 기본 약칭은 팀장만 */}
+          {isOwner && (
+            <Button
+              title={team.course_name ? '변경' : '지정'}
+              variant="secondary"
+              small
+              onPress={() => {
+                setCourseText(team.course_name);
+                setCourseShortText(team.course_short ?? '');
+                setCourseOpen(true);
+              }}
+            />
+          )}
         </View>
+        {/* 나만 보이는 약칭: 누구나 */}
+        {team.course_name ? (
+          <View style={[styles.row, { justifyContent: 'space-between', marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderColor: colors.border }]}>
+            <Text style={styles.sub}>
+              🔒 내 화면 약칭: <Text style={{ fontWeight: '700', color: colors.text }}>{myShort || teamDefaultShort}</Text>
+              {myShort ? '' : <Text style={styles.muted}> (팀 기본)</Text>}
+            </Text>
+            <Button
+              title="바꾸기"
+              variant="ghost"
+              small
+              onPress={() => {
+                setMyShortText(myShort || teamDefaultShort);
+                setMyShortOpen(true);
+              }}
+            />
+          </View>
+        ) : null}
         {team.description ? <Text style={[styles.sub, { marginTop: 8 }]}>{team.description}</Text> : null}
       </Card>
 
@@ -332,6 +379,34 @@ export function MembersTab() {
         </Pressable>
       </Modal>
 
+      {/* 나만 보이는 약칭 */}
+      <Modal visible={myShortOpen} transparent animationType="fade" onRequestClose={() => setMyShortOpen(false)}>
+        <Pressable
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 24 }}
+          onPress={() => setMyShortOpen(false)}
+        >
+          <Pressable style={{ backgroundColor: colors.card, borderRadius: radius.lg, padding: 20 }} onPress={() => {}}>
+            <Text style={[styles.title, { marginBottom: 4 }]}>🔒 내 화면 약칭</Text>
+            <Text style={[styles.muted, { marginBottom: 12 }]}>
+              내 팀 목록 아이콘에 나만 이렇게 보여요. 팀원에게는 팀 기본 약칭({teamDefaultShort})이 보여요.
+            </Text>
+            <View style={[styles.row, { gap: 10 }]}>
+              <TeamIcon team={{ ...team, my_course_short: myShortText }} size={44} />
+              <Input
+                value={myShortText}
+                onChangeText={(t) => setMyShortText(Array.from(t.replace(/\s+/g, '')).slice(0, COURSE_SHORT_MAX).join(''))}
+                placeholder={teamDefaultShort}
+                style={{ flex: 1 }}
+              />
+            </View>
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+              <Button title="팀 기본으로" variant="secondary" onPress={() => saveMyShort('')} style={{ flex: 1 }} />
+              <Button title="저장" onPress={() => saveMyShort(myShortText)} style={{ flex: 1 }} />
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       {/* 수업 지정/변경 (팀장) */}
       <Modal visible={courseOpen} transparent animationType="fade" onRequestClose={() => setCourseOpen(false)}>
         <Pressable
@@ -340,7 +415,7 @@ export function MembersTab() {
         >
           <Pressable style={{ backgroundColor: colors.card, borderRadius: radius.lg, padding: 20 }} onPress={() => {}}>
             <Text style={[styles.title, { marginBottom: 4 }]}>어떤 수업의 팀플인가요?</Text>
-            <Text style={[styles.muted, { marginBottom: 12 }]}>내 시간표의 과목을 고르거나 직접 입력하세요.</Text>
+            <Text style={[styles.muted, { marginBottom: 12 }]}>내 시간표의 과목을 고르거나 직접 입력하세요. 약칭은 팀원 모두의 기본값이 돼요(각자 자기 화면에서 바꿀 수 있어요).</Text>
             <CoursePicker value={courseText} onChange={setCourseText} />
             {courseOpen && <CourseShortField course={courseText} value={courseShortText} onChange={setCourseShortText} />}
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>

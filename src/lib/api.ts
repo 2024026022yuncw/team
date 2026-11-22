@@ -542,9 +542,31 @@ export async function deleteTeamDraw(id: string) {
   check(await supabase.from('team_draws').delete().eq('id', id));
 }
 
-/** 팀의 수업·아이콘 약칭 변경 (팀원 누구나, 서버에서 멤버인지 확인) */
-export async function setTeamCourse(teamId: string, courseName: string, courseShort: string) {
+// ------------------------------------------------------------------ 나만 보이는 아이콘 약칭
+export async function listMyCourseShorts(): Promise<Map<string, string>> {
+  // RLS 로 내 설정만 조회됨
+  const rows = check(await supabase.from('user_team_prefs').select('team_id, course_short')) as {
+    team_id: string;
+    course_short: string;
+  }[];
+  return new Map(rows.filter((r) => r.course_short).map((r) => [r.team_id, r.course_short]));
+}
+
+export async function setMyCourseShort(userId: string, teamId: string, short: string) {
+  const v = Array.from(short.replace(/\s+/g, '')).slice(0, 4).join('');
+  if (!v) {
+    check(await supabase.from('user_team_prefs').delete().eq('user_id', userId).eq('team_id', teamId));
+    return;
+  }
   check(
-    await supabase.rpc('set_team_course', { p_team_id: teamId, p_course_name: courseName, p_course_short: courseShort }),
+    await supabase
+      .from('user_team_prefs')
+      .upsert({ user_id: userId, team_id: teamId, course_short: v, updated_at: new Date().toISOString() }),
   );
+}
+
+/** 내 팀 목록 + 나만 보이는 약칭 */
+export async function listMyTeamsWithPrefs(): Promise<Team[]> {
+  const [teams, shorts] = await Promise.all([listMyTeams(), listMyCourseShorts().catch(() => new Map<string, string>())]);
+  return teams.map((t) => ({ ...t, my_course_short: shorts.get(t.id) ?? '' }));
 }

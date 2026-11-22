@@ -158,11 +158,14 @@ export function TeamIcon({
   team,
   size = 52,
 }: {
-  team: Pick<Team, 'id' | 'name' | 'course_name'> & { course_short?: string };
+  team: Pick<Team, 'id' | 'name' | 'course_name'> & { course_short?: string; my_course_short?: string };
   size?: number;
 }) {
   const course = team.course_name?.trim() ?? '';
-  const label = course ? team.course_short?.trim() || shortCourse(course) : Array.from(team.name)[0] ?? '';
+  // 표시 순서: 내 약칭 → 팀장이 정한 약칭 → 과목명에서 자동
+  const label = course
+    ? team.my_course_short?.trim() || team.course_short?.trim() || shortCourse(course)
+    : (Array.from(team.name)[0] ?? '');
   const len = Array.from(label).length;
   const long = len >= 3;
   return (

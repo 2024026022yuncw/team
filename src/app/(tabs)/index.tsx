@@ -5,7 +5,7 @@ import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
 import { TeamIcon } from '@/components/CoursePicker';
 import { Button, Card, EmptyState, Loading, styles } from '@/components/ui';
 import { Alert } from '@/lib/alert';
-import { acceptTeamInvite, declineTeamInvite, listMyTeamInvites, listMyTeams } from '@/lib/api';
+import { acceptTeamInvite, declineTeamInvite, listMyTeamInvites, listMyTeamsWithPrefs } from '@/lib/api';
 import { useAuth, useUserId } from '@/lib/auth';
 import { useAsync, useRealtime } from '@/lib/hooks';
 import { errorMessage } from '@/lib/supabase';
@@ -16,7 +16,7 @@ export default function TeamsScreen() {
   const router = useRouter();
   const { profile } = useAuth();
   const userId = useUserId();
-  const { data: teams, loading, reload } = useAsync<Team[]>(listMyTeams, [], []);
+  const { data: teams, loading, reload } = useAsync<Team[]>(listMyTeamsWithPrefs, [], []);
   const { data: invites, setData: setInvites, reload: reloadInvites } = useAsync<TeamInvite[]>(listMyTeamInvites, [], []);
   useRealtime(`my-invites-${userId}`, [{ table: 'team_invites', filter: `invitee=eq.${userId}` }], reloadInvites);
 

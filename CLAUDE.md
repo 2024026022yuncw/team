@@ -29,8 +29,9 @@
 - `009_team_draws.sql`: 팀별 랜덤 뽑기 기록(team_draws), RPC run_team_draw(서버에서 무작위) — **2026-11-23 추가, 사용자 실행 필요(확인 전)**
 - `010_draw_lock.sql`: run_team_draw 에 팀별 advisory lock + 15초 쿨다운(DRAW_TOO_SOON) — **2026-11-23 추가, 사용자 실행 필요(확인 전)**
 - `011_course_short.sql`: teams.course_short (아이콘 약칭, 최대 4글자) — **2026-11-23 추가, 사용자 실행 필요(확인 전)**
-- `012_member_set_course.sql`: RPC set_team_course — 팀원 누구나 수업·약칭 변경 — **2026-11-23 추가, 사용자 실행 필요(확인 전)**
-- 새 마이그레이션은 `013_...sql`로 만들고 schema.sql 끝에도 덧붙인다. 실행은 사용자에게 안내한다.
+- `012_member_set_course.sql`: (013 에서 취소됨 — 실행 안 해도 됨)
+- `013_my_course_short.sql`: set_team_course 삭제(수업은 팀장만) + user_team_prefs(나만 보이는 약칭) — **2026-11-23 추가, 사용자 실행 필요(확인 전)**. 아이콘 표시 순서: 내 약칭 → teams.course_short(팀장) → shortCourse 자동
+- 새 마이그레이션은 `014_...sql`로 만들고 schema.sql 끝에도 덧붙인다. 실행은 사용자에게 안내한다.
 - `supabase/diagnostics/`: 읽기 전용 진단 SQL(커밋 안 함, 로컬에만 있음)
 
 ## 시간표 이미지 인식 (api/parse-timetable.ts)
