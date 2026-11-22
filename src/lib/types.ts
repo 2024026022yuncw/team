@@ -8,6 +8,7 @@ export type Team = {
   name: string;
   description: string;
   course_name: string; // 이 팀플의 수업 (없으면 빈 문자열)
+  course_short?: string; // 아이콘 약칭 (비면 과목명에서 자동)
   invite_code: string;
   owner_id: string;
   created_at: string;

@@ -6,7 +6,7 @@ import { Modal, Platform, Pressable, ScrollView, Share, Text, View } from 'react
 
 import { Avatar, Button, Card, Chip, Input, SectionTitle, styles } from '@/components/ui';
 import { Alert } from '@/lib/alert';
-import { CoursePicker } from '@/components/CoursePicker';
+import { CoursePicker, CourseShortField, TeamIcon } from '@/components/CoursePicker';
 import {
   deleteTeam,
   inviteFriendToTeam,
@@ -34,6 +34,7 @@ export function MembersTab() {
   const [roleText, setRoleText] = useState('');
   const [courseOpen, setCourseOpen] = useState(false);
   const [courseText, setCourseText] = useState('');
+  const [courseShortText, setCourseShortText] = useState('');
   const [inviteOpen, setInviteOpen] = useState(false);
 
   // 친구 관계 (팀원 옆 "+친구" 버튼, 친구 초대 목록용)
@@ -78,7 +79,7 @@ export function MembersTab() {
 
   async function saveCourse() {
     try {
-      await updateTeam(team!.id, { course_name: courseText.trim() });
+      await updateTeam(team!.id, { course_name: courseText.trim(), course_short: courseText.trim() ? courseShortText.trim() : '' });
       setCourseOpen(false);
       reload();
     } catch (e) {
@@ -186,6 +187,7 @@ export function MembersTab() {
       {/* 이 팀플의 수업 */}
       <Card style={{ paddingVertical: 12 }}>
         <View style={[styles.row, { justifyContent: 'space-between', gap: 8 }]}>
+          {team.course_name ? <TeamIcon team={team} size={40} /> : null}
           <View style={{ flex: 1 }}>
             <Text style={styles.muted}>수업</Text>
             <Text style={{ fontSize: 16, fontWeight: '700', color: team.course_name ? colors.text : colors.textMuted, marginTop: 2 }}>
@@ -199,6 +201,7 @@ export function MembersTab() {
               small
               onPress={() => {
                 setCourseText(team.course_name);
+                setCourseShortText(team.course_short ?? '');
                 setCourseOpen(true);
               }}
             />
@@ -340,6 +343,7 @@ export function MembersTab() {
             <Text style={[styles.title, { marginBottom: 4 }]}>어떤 수업의 팀플인가요?</Text>
             <Text style={[styles.muted, { marginBottom: 12 }]}>내 시간표의 과목을 고르거나 직접 입력하세요.</Text>
             <CoursePicker value={courseText} onChange={setCourseText} />
+            {courseOpen && <CourseShortField course={courseText} value={courseShortText} onChange={setCourseShortText} />}
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
               <Button title="취소" variant="secondary" onPress={() => setCourseOpen(false)} style={{ flex: 1 }} />
               <Button title="저장" onPress={saveCourse} style={{ flex: 1 }} />

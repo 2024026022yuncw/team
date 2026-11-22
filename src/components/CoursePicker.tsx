@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { Chip, Input, styles } from '@/components/ui';
@@ -69,19 +69,102 @@ export function CoursePicker({ value, onChange }: { value: string; onChange: (v:
   );
 }
 
-/** 네모 아이콘에 넣을 짧은 과목명: 4글자까지는 그대로(2줄), 더 길면 앞 3글자 */
+export const COURSE_SHORT_MAX = 4;
+// 약칭을 만들 때 건너뛸 연결어
+const SKIP_WORDS = new Set(['및', '와', '과', '의', 'and', 'of', 'the', '&']);
+
+/**
+ * 과목명 → 아이콘용 약칭 (최대 4글자)
+ * - 여러 단어: 단어마다 첫 글자 (경영과 정보기술 → 경정, Python 프로그래밍 기초 → P프기)
+ * - 한 단어: 4글자 이하는 그대로(자료구조), 길면 앞 3글자(캡스톤디자인 → 캡스톤)
+ * - 괄호 안(분반 등)은 무시: 경영과 정보기술(02분반) → 경정
+ */
 export function shortCourse(name: string): string {
-  const n = name.replace(/\s+/g, '');
-  return n.length <= 4 ? n : n.slice(0, 3);
+  const cleaned = name.replace(/[([{].*?[)\]}]/g, ' ').trim();
+  const words = cleaned
+    .split(/[\s·,/&+\-_:]+/)
+    .filter((w) => w && !SKIP_WORDS.has(w.toLowerCase()));
+  if (words.length >= 2) {
+    return words
+      .map((w) => Array.from(w)[0])
+      .slice(0, COURSE_SHORT_MAX)
+      .join('');
+  }
+  const chars = Array.from(words[0] ?? cleaned.replace(/\s+/g, ''));
+  return (chars.length <= COURSE_SHORT_MAX ? chars : chars.slice(0, 3)).join('');
+}
+
+/** 팀 아이콘 약칭 입력: 과목이 바뀌면 자동으로 채우고, 직접 고치면 그 값을 유지 */
+export function CourseShortField({
+  course,
+  value,
+  onChange,
+}: {
+  course: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const auto = course.trim() ? shortCourse(course) : '';
+  // 처음 값이 자동 값과 다르면 사용자가 정한 것으로 봄
+  const [edited, setEdited] = useState(value !== '' && value !== auto);
+  // 과목이 바뀌면(직접 고친 적 없을 때만) 자동 약칭으로 채움
+  const firstRun = useRef(true);
+  useEffect(() => {
+    if (firstRun.current) {
+      firstRun.current = false;
+      if (value) return; // 이미 저장된 약칭이 있으면 그대로
+    }
+    if (!edited) onChange(auto);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [course]);
+  if (!course.trim()) return null;
+  return (
+    <View style={{ marginTop: 10 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <TeamIcon team={{ id: course, name: course, course_name: course, course_short: value }} size={44} />
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.muted, { marginBottom: 4 }]}>아이콘 약칭 (최대 {COURSE_SHORT_MAX}글자)</Text>
+          <Input
+            value={value}
+            onChangeText={(t) => {
+              setEdited(true);
+              onChange(Array.from(t.replace(/\s+/g, '')).slice(0, COURSE_SHORT_MAX).join(''));
+            }}
+            placeholder={auto}
+            style={{ paddingVertical: 8 }}
+          />
+        </View>
+      </View>
+      {edited && value !== auto && (
+        <Text
+          style={{ color: colors.primary, fontSize: 13, marginTop: 4 }}
+          onPress={() => {
+            setEdited(false);
+            onChange(auto);
+          }}
+        >
+          자동 약칭({auto})으로 되돌리기
+        </Text>
+      )}
+    </View>
+  );
 }
 
 /**
- * 팀 목록의 네모 아이콘. 수업이 있으면 과목명(같은 과목은 같은 색), 없으면 팀 이름 첫 글자.
+ * 팀 목록의 네모 아이콘. 수업이 있으면 약칭(직접 정한 것 우선, 없으면 자동), 없으면 팀 이름 첫 글자.
+ * 같은 과목은 같은 색.
  */
-export function TeamIcon({ team, size = 52 }: { team: Pick<Team, 'id' | 'name' | 'course_name'>; size?: number }) {
+export function TeamIcon({
+  team,
+  size = 52,
+}: {
+  team: Pick<Team, 'id' | 'name' | 'course_name'> & { course_short?: string };
+  size?: number;
+}) {
   const course = team.course_name?.trim() ?? '';
-  const label = course ? shortCourse(course) : team.name.slice(0, 1);
-  const long = label.length >= 3;
+  const label = course ? team.course_short?.trim() || shortCourse(course) : Array.from(team.name)[0] ?? '';
+  const len = Array.from(label).length;
+  const long = len >= 3;
   return (
     <View
       style={{
@@ -107,7 +190,7 @@ export function TeamIcon({ team, size = 52 }: { team: Pick<Team, 'id' | 'name' |
         numberOfLines={2}
       >
         {/* 4글자는 2글자씩 두 줄로 */}
-        {label.length === 4 ? `${label.slice(0, 2)}\n${label.slice(2)}` : label}
+        {len === 4 ? `${Array.from(label).slice(0, 2).join('')}\n${Array.from(label).slice(2).join('')}` : label}
       </Text>
     </View>
   );

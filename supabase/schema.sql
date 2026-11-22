@@ -1057,3 +1057,13 @@ $$;
 
 revoke all on function public.run_team_draw(uuid, text, uuid[], int) from public, anon;
 grant execute on function public.run_team_draw(uuid, text, uuid[], int) to authenticated;
+
+
+-- =====================================================================
+-- 011: 팀 아이콘에 보일 과목 약칭 (예: 경영과 정보기술 → 경정)
+-- 010 까지 실행한 뒤, SQL Editor 에 붙여넣고 실행하세요. (여러 번 실행해도 안전)
+-- 비어 있으면 앱이 과목명에서 자동으로 만들어 보여줌. 팀장이 수정 가능(기존 정책)
+-- =====================================================================
+
+alter table public.teams add column if not exists course_short text not null default ''
+  check (char_length(course_short) <= 4);
