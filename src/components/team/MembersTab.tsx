@@ -16,6 +16,7 @@ import {
   listMyCourseShorts,
   sendFriendRequest,
   setAllowFriendJoin,
+  setShareWithFriends,
   setMyCourseShort,
   updateRoleTitle,
   updateTeam,
@@ -60,6 +61,7 @@ export function MembersTab() {
     new Map(),
   );
   const myShort = (team && myShorts.get(team.id)) || '';
+  const myShare = members.find((x) => x.user_id === userId)?.share_with_friends !== false;
   const teamDefaultShort = team?.course_name ? team.course_short?.trim() || shortCourse(team.course_name) : '';
 
   if (!team) return null;
@@ -276,6 +278,28 @@ export function MembersTab() {
           ) : (
             <Text style={styles.muted}>{team.allow_friend_join !== false ? '공개' : '비공개'}</Text>
           )}
+        </View>
+        {/* 내 친구에게 보이기: 각자 */}
+        <View style={[styles.row, { justifyContent: 'space-between', marginTop: 10, gap: 8, opacity: team.allow_friend_join !== false ? 1 : 0.5 }]}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.sub}>🔒 내 친구에게 이 팀 보이기</Text>
+            <Text style={styles.muted}>
+              {team.allow_friend_join === false
+                ? '팀장이 비공개로 해서 지금은 아무에게도 안 보여요'
+                : myShare
+                  ? '내 친구들의 "친구 팀" 목록에 이 팀이 나와요'
+                  : '내 친구들에게는 이 팀이 안 보여요'}
+            </Text>
+          </View>
+          <Chip
+            label={myShare ? '보이기' : '숨기기'}
+            active={myShare}
+            onPress={() =>
+              setShareWithFriends(team.id, userId, !myShare)
+                .then(reload)
+                .catch((e) => Alert.alert('저장 실패', errorMessage(e)))
+            }
+          />
         </View>
       </Card>
 

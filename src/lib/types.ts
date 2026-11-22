@@ -22,6 +22,7 @@ export type TeamMember = {
   role: 'owner' | 'member';
   role_title: string;
   joined_at: string;
+  share_with_friends?: boolean; // 내 친구에게 이 팀 보이기 (기본 true)
   profile: Profile | null;
 };
 

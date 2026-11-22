@@ -55,7 +55,7 @@ export async function listMembers(teamId: string): Promise<TeamMember[]> {
   const rows = check(
     await supabase
       .from('team_members')
-      .select('team_id, user_id, role, role_title, joined_at')
+      .select('*')
       .eq('team_id', teamId)
       .order('joined_at'),
   ) as Omit<TeamMember, 'profile'>[];
@@ -592,4 +592,11 @@ export async function joinFriendTeam(teamId: string) {
 /** 팀장: 친구 팀 목록 공개 여부 */
 export async function setAllowFriendJoin(teamId: string, allow: boolean) {
   check(await supabase.from('teams').update({ allow_friend_join: allow }).eq('id', teamId));
+}
+
+/** 내 친구에게 이 팀 보이기 (본인 설정만, 서버 트리거로 강제) */
+export async function setShareWithFriends(teamId: string, userId: string, share: boolean) {
+  check(
+    await supabase.from('team_members').update({ share_with_friends: share }).eq('team_id', teamId).eq('user_id', userId),
+  );
 }
