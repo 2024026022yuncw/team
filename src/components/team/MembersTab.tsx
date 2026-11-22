@@ -257,49 +257,62 @@ export function MembersTab() {
           </View>
         ) : null}
         {team.description ? <Text style={[styles.sub, { marginTop: 8 }]}>{team.description}</Text> : null}
-        {/* 친구 팀 목록 공개 (팀장만 변경) */}
-        <View style={[styles.row, { justifyContent: 'space-between', marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderColor: colors.border, gap: 8 }]}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.sub}>💛 친구 팀 목록에 공개</Text>
-            <Text style={styles.muted}>
-              {team.allow_friend_join !== false ? '팀원의 친구가 초대 없이 참여할 수 있어요' : '초대나 초대 코드로만 참여할 수 있어요'}
-            </Text>
+        {/* 친구 참여 설정: ① 팀 전체(팀장) → ② 내 친구들에게(각자) */}
+        <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderColor: colors.border }}>
+          <Text style={{ fontWeight: '700', color: colors.text }}>💛 친구 참여 설정</Text>
+          <Text style={[styles.muted, { marginTop: 2 }]}>
+            팀원의 친구가 "친구 팀" 버튼으로 초대 없이 들어올 수 있게 할지 정해요.
+          </Text>
+
+          {/* ① 팀 전체 스위치 (팀장만) */}
+          <View style={[styles.row, { justifyContent: 'space-between', marginTop: 10, gap: 8 }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.sub}>
+                ① 팀 전체 <Text style={styles.muted}>· 팀장이 정해요</Text>
+              </Text>
+              <Text style={styles.muted}>
+                {team.allow_friend_join !== false ? '친구 참여 허용 중' : '막음 — 누구의 친구에게도 안 보여요'}
+              </Text>
+            </View>
+            {isOwner ? (
+              <Chip
+                label={team.allow_friend_join !== false ? '허용' : '막음'}
+                active={team.allow_friend_join !== false}
+                onPress={() =>
+                  setAllowFriendJoin(team.id, team.allow_friend_join === false)
+                    .then(reload)
+                    .catch((e) => Alert.alert('저장 실패', errorMessage(e)))
+                }
+              />
+            ) : (
+              <Text style={[styles.muted, { fontWeight: '700' }]}>{team.allow_friend_join !== false ? '허용' : '막음'}</Text>
+            )}
           </View>
-          {isOwner ? (
+
+          {/* ② 내 친구들에게 (각자) */}
+          <View style={[styles.row, { justifyContent: 'space-between', marginTop: 10, gap: 8, opacity: team.allow_friend_join !== false ? 1 : 0.45 }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.sub}>
+                ② 내 친구들에게 <Text style={styles.muted}>· 내가 정해요</Text>
+              </Text>
+              <Text style={styles.muted}>
+                {team.allow_friend_join === false
+                  ? '①이 막혀 있어서 지금은 적용되지 않아요'
+                  : myShare
+                    ? '내 친구들이 이 팀을 보고 참여할 수 있어요'
+                    : '내 친구들에게는 이 팀이 안 보여요'}
+              </Text>
+            </View>
             <Chip
-              label={team.allow_friend_join !== false ? '공개 중' : '비공개'}
-              active={team.allow_friend_join !== false}
+              label={myShare ? '보이기' : '숨기기'}
+              active={myShare}
               onPress={() =>
-                setAllowFriendJoin(team.id, team.allow_friend_join === false)
+                setShareWithFriends(team.id, userId, !myShare)
                   .then(reload)
                   .catch((e) => Alert.alert('저장 실패', errorMessage(e)))
               }
             />
-          ) : (
-            <Text style={styles.muted}>{team.allow_friend_join !== false ? '공개' : '비공개'}</Text>
-          )}
-        </View>
-        {/* 내 친구에게 보이기: 각자 */}
-        <View style={[styles.row, { justifyContent: 'space-between', marginTop: 10, gap: 8, opacity: team.allow_friend_join !== false ? 1 : 0.5 }]}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.sub}>🔒 내 친구에게 이 팀 보이기</Text>
-            <Text style={styles.muted}>
-              {team.allow_friend_join === false
-                ? '팀장이 비공개로 해서 지금은 아무에게도 안 보여요'
-                : myShare
-                  ? '내 친구들의 "친구 팀" 목록에 이 팀이 나와요'
-                  : '내 친구들에게는 이 팀이 안 보여요'}
-            </Text>
           </View>
-          <Chip
-            label={myShare ? '보이기' : '숨기기'}
-            active={myShare}
-            onPress={() =>
-              setShareWithFriends(team.id, userId, !myShare)
-                .then(reload)
-                .catch((e) => Alert.alert('저장 실패', errorMessage(e)))
-            }
-          />
         </View>
       </Card>
 
