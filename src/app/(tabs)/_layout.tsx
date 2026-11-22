@@ -1,7 +1,33 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
+import { Pressable, Text } from 'react-native';
 
 import { colors } from '@/lib/theme';
+
+/** 모든 하단 탭 화면 오른쪽 위에 항상 보이는 AI 비서 버튼 */
+function AssistantButton() {
+  const router = useRouter();
+  return (
+    <Pressable
+      onPress={() => router.push('/assistant')}
+      accessibilityLabel="AI 비서 열기"
+      style={({ pressed }) => ({
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        backgroundColor: colors.primary,
+        paddingHorizontal: 12,
+        paddingVertical: 7,
+        borderRadius: 999,
+        marginRight: 12,
+        opacity: pressed ? 0.85 : 1,
+      })}
+    >
+      <Text style={{ fontSize: 15 }}>🤖</Text>
+      <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>AI 비서</Text>
+    </Pressable>
+  );
+}
 
 export default function TabLayout() {
   return (
@@ -10,6 +36,7 @@ export default function TabLayout() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textMuted,
         headerTitleStyle: { fontWeight: '700' },
+        headerRight: () => <AssistantButton />,
         sceneStyle: { backgroundColor: colors.bg },
       }}
     >

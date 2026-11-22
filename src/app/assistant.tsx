@@ -1,5 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useRef, useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -30,6 +31,16 @@ export default function AssistantScreen() {
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const scrollRef = useRef<ScrollViewInstance>(null);
+  // 다른 화면의 질문 버튼에서 들어오면 그 질문을 바로 보냄 (한 번만)
+  const { q } = useLocalSearchParams<{ q?: string }>();
+  const autoAsked = useRef(false);
+  useEffect(() => {
+    if (q && session && !autoAsked.current) {
+      autoAsked.current = true;
+      send(q);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, session]);
 
   async function send(text: string) {
     const q = text.trim();

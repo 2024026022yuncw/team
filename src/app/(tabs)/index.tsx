@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
-import { FlatList, RefreshControl, Text, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
 
 import { TeamIcon } from '@/components/CoursePicker';
 import { Button, Card, EmptyState, Loading, styles } from '@/components/ui';
@@ -81,14 +81,36 @@ export default function TeamsScreen() {
             </View>
 
             {/* AI 비서 */}
-            <Card onPress={() => router.push('/assistant')} style={{ marginTop: 12, backgroundColor: colors.primarySoft, borderColor: colors.primarySoft }}>
-              <View style={[styles.row, { gap: 10 }]}>
-                <Text style={{ fontSize: 26 }}>🤖</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontWeight: '700', color: colors.primary }}>AI 비서에게 물어보기</Text>
-                  <Text style={styles.muted}>“오늘 일정 뭐야?” “이번 주 마감 할 일은?”</Text>
+            <Card
+              onPress={() => router.push('/assistant')}
+              style={{ marginTop: 16, backgroundColor: colors.primary, borderColor: colors.primary, paddingVertical: 18 }}
+            >
+              <View style={[styles.row, { gap: 12 }]}>
+                <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontSize: 28 }}>🤖</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontWeight: '800', color: '#fff', fontSize: 17 }}>AI 비서에게 물어보세요</Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>내 일정·할 일·공지를 보고 바로 답해줘요</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#fff" />
+              </View>
+              {/* 누르면 바로 질문 */}
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
+                {['오늘 일정 알려줘', '이번 주 마감 할 일은?', '안 읽은 공지 요약해줘'].map((q) => (
+                  <Pressable
+                    key={q}
+                    onPress={() => router.push({ pathname: '/assistant', params: { q } })}
+                    style={({ pressed }) => ({
+                      backgroundColor: pressed ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.2)',
+                      borderRadius: 999,
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                    })}
+                  >
+                    <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>💬 {q}</Text>
+                  </Pressable>
+                ))}
               </View>
             </Card>
 
