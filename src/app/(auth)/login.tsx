@@ -17,6 +17,23 @@ export default function LoginScreen() {
   const emailRef = useRef<TextInputInstance>(null);
   const passwordRef = useRef<TextInputInstance>(null);
 
+  const [guestBusy, setGuestBusy] = useState(false);
+
+  /** 게스트(익명 로그인): 진짜 계정이 만들어지고 이 기기에 로그인 상태가 저장됨 */
+  async function startGuest() {
+    if (guestBusy) return;
+    setGuestBusy(true);
+    try {
+      const tag = String(Math.floor(1000 + Math.random() * 9000));
+      const { error } = await supabase.auth.signInAnonymously({ options: { data: { display_name: `게스트${tag}` } } });
+      if (error) throw error;
+    } catch (e) {
+      Alert.alert('게스트 시작 실패', errorMessage(e));
+    } finally {
+      setGuestBusy(false);
+    }
+  }
+
   async function submit() {
     if (busy) return; // 엔터 연타로 중복 요청 방지
     if (!email.trim() || !password) {
@@ -125,6 +142,17 @@ export default function LoginScreen() {
           </Field>
 
           <Button title={mode === 'login' ? '로그인' : '가입하기'} onPress={submit} loading={busy} />
+
+          {/* 게스트 체험 */}
+          <View style={[styles.row, { marginVertical: 20, gap: 8 }]}>
+            <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
+            <Text style={styles.muted}>또는</Text>
+            <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
+          </View>
+          <Button title="👀 가입 없이 게스트로 둘러보기" variant="secondary" onPress={startGuest} loading={guestBusy} />
+          <Text style={[styles.muted, { textAlign: 'center', marginTop: 8, lineHeight: 18 }]}>
+            게스트 계정은 이 기기·브라우저에서 계속 유지돼요.{'\n'}나중에 내 정보에서 이메일을 등록하면 그대로 정식 계정이 돼요.
+          </Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

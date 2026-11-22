@@ -33,7 +33,8 @@
 - `013_my_course_short.sql`: set_team_course 삭제(수업은 팀장만) + user_team_prefs(나만 보이는 약칭) — **2026-11-23 추가, 사용자 실행 필요(확인 전)**. 아이콘 표시 순서: 내 약칭 → teams.course_short(팀장) → shortCourse 자동
 - `014_friend_teams.sql`: teams.allow_friend_join(기본 true) + RPC list_friend_teams/join_friend_team — 친구가 속한 팀에 초대 없이 참여 — **2026-11-23 추가, 사용자 실행 필요(확인 전)**
 - `015_member_share_friends.sql`: team_members.share_with_friends(본인만 변경, 트리거) — 친구 팀 목록은 팀장 공개 AND 그 친구가 보이기 켠 팀만 — **2026-11-23 추가, 사용자 실행 필요(확인 전)**
-- 새 마이그레이션은 `016_...sql`로 만들고 schema.sql 끝에도 덧붙인다. 실행은 사용자에게 안내한다.
+- `016_guest.sql`: handle_new_user 가 이메일 없는 게스트도 처리(이름 기본 "게스트") — **2026-11-23 추가, 사용자 실행 필요(확인 전)**. + 대시보드에서 "Allow anonymous sign-ins" 켜야 게스트 로그인 동작 (2026-11-23 기준 꺼져 있음)
+- 새 마이그레이션은 `017_...sql`로 만들고 schema.sql 끝에도 덧붙인다. 실행은 사용자에게 안내한다.
 - `supabase/diagnostics/`: 읽기 전용 진단 SQL(커밋 안 함, 로컬에만 있음)
 
 ## 시간표 이미지 인식 (api/parse-timetable.ts)

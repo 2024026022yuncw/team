@@ -44,6 +44,9 @@ export function errorMessage(err: unknown): string {
     if (msg.includes('User already registered')) return '이미 가입된 이메일입니다.';
     if (msg.includes('Email not confirmed')) return '이메일 인증을 먼저 완료해주세요.';
     if (msg.includes('Password should be')) return '비밀번호는 6자 이상이어야 합니다.';
+    if (/anonymous sign-ins are disabled/i.test(msg)) return '게스트 로그인이 아직 꺼져 있어요. 관리자가 Supabase 에서 켜야 해요.';
+    if (/already been registered|email address.*(exists|registered)/i.test(msg)) return '이미 다른 계정이 쓰고 있는 이메일이에요.';
+    if (/rate limit/i.test(msg)) return '요청이 너무 많아요. 잠시 후 다시 시도해주세요.';
     return msg;
   }
   return String(err);

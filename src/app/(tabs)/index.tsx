@@ -14,7 +14,7 @@ import type { Team, TeamInvite } from '@/lib/types';
 
 export default function TeamsScreen() {
   const router = useRouter();
-  const { profile } = useAuth();
+  const { profile, session } = useAuth();
   const userId = useUserId();
   const { data: teams, loading, reload } = useAsync<Team[]>(listMyTeamsWithPrefs, [], []);
   const { data: invites, setData: setInvites, reload: reloadInvites } = useAsync<TeamInvite[]>(listMyTeamInvites, [], []);
@@ -64,6 +64,14 @@ export default function TeamsScreen() {
               안녕하세요, {profile?.display_name || '팀원'}님 👋
             </Text>
             <Text style={[styles.sub, { marginTop: 4 }]}>참여 중인 팀을 선택하세요.</Text>
+            {session?.user.is_anonymous ? (
+              <Pressable onPress={() => router.push('/profile')} style={{ marginTop: 10, backgroundColor: '#FEF3C7', borderRadius: 10, padding: 10 }}>
+                <Text style={{ color: '#92400E', fontSize: 13, lineHeight: 19 }}>
+                  👀 게스트로 둘러보는 중이에요. 이 기기에서만 유지돼요.{' '}
+                  <Text style={{ fontWeight: '700', textDecorationLine: 'underline' }}>이메일 등록하고 계속 쓰기 →</Text>
+                </Text>
+              </Pressable>
+            ) : null}
             <View style={{ flexDirection: 'row', gap: 6, marginTop: 16 }}>
               <Button
                 title="팀 만들기"

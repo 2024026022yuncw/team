@@ -6,12 +6,17 @@ import { Alert } from '@/lib/alert';
 import { deleteMyAccount, updateDisplayName } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { errorMessage, supabase } from '@/lib/supabase';
+import { colors } from '@/lib/theme';
 
 export default function ProfileScreen() {
   const { session, profile, refreshProfile } = useAuth();
   const [name, setName] = useState(profile?.display_name ?? '');
   const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const isGuest = Boolean(session?.user.is_anonymous);
+  const [upEmail, setUpEmail] = useState('');
+  const [upPassword, setUpPassword] = useState('');
+  const [upgrading, setUpgrading] = useState(false);
 
   useEffect(() => setName(profile?.display_name ?? ''), [profile?.display_name]);
 
@@ -56,10 +61,44 @@ export default function ProfileScreen() {
   }
 
   function logout() {
-    Alert.alert('로그아웃', '로그아웃할까요?', [
-      { text: '취소', style: 'cancel' },
-      { text: '로그아웃', style: 'destructive', onPress: () => supabase.auth.signOut() },
-    ]);
+    Alert.alert(
+      '로그아웃',
+      isGuest
+        ? '게스트 계정은 로그아웃하면 다시 들어올 수 없어요. 팀·시간표·다이어리를 계속 쓰려면 먼저 아래에서 이메일을 등록하세요.\n\n그래도 로그아웃할까요?'
+        : '로그아웃할까요?',
+      [
+        { text: '취소', style: 'cancel' },
+        { text: '로그아웃', style: 'destructive', onPress: () => supabase.auth.signOut() },
+      ],
+    );
+  }
+
+  /** 게스트 → 정식 계정: 같은 계정에 이메일·비밀번호를 붙임 (데이터 그대로 유지) */
+  async function upgrade() {
+    const email = upEmail.trim();
+    if (!email || upPassword.length < 6) {
+      Alert.alert('입력 확인', '이메일과 6자 이상 비밀번호를 입력해주세요.');
+      return;
+    }
+    setUpgrading(true);
+    try {
+      const { error: emailErr } = await supabase.auth.updateUser({ email });
+      if (emailErr) throw emailErr;
+      const { error: pwErr } = await supabase.auth.updateUser({ password: upPassword });
+      if (pwErr) {
+        // 이메일 인증이 켜진 프로젝트라면 인증 후 비밀번호를 설정해야 함
+        Alert.alert('이메일을 확인해주세요', `${email} 로 보낸 메일을 확인한 뒤 다시 비밀번호를 등록해주세요.\n(${errorMessage(pwErr)})`);
+        return;
+      }
+      await supabase.auth.refreshSession();
+      setUpEmail('');
+      setUpPassword('');
+      Alert.alert('정식 계정 완료 🎉', `이제 ${email} 로 어느 기기에서든 로그인할 수 있어요. 지금까지의 데이터는 그대로예요.`);
+    } catch (e) {
+      Alert.alert('등록 실패', errorMessage(e));
+    } finally {
+      setUpgrading(false);
+    }
   }
 
   return (
@@ -67,8 +106,33 @@ export default function ProfileScreen() {
       <Card style={{ alignItems: 'center', paddingVertical: 24 }}>
         <Avatar id={session?.user.id} name={profile?.display_name ?? ''} size={72} />
         <Text style={[styles.title, { marginTop: 12 }]}>{profile?.display_name}</Text>
-        <Text style={styles.sub}>{session?.user.email}</Text>
+        <Text style={styles.sub}>{isGuest ? '👀 게스트 계정' : session?.user.email}</Text>
       </Card>
+
+      {isGuest && (
+        <Card style={{ borderColor: colors.warning, borderWidth: 1.5 }}>
+          <Text style={[styles.title, { marginBottom: 4 }]}>이메일 등록하고 계속 쓰기</Text>
+          <Text style={[styles.sub, { marginBottom: 12, lineHeight: 20 }]}>
+            게스트 계정은 이 기기·브라우저에서만 유지돼요. 브라우저 기록을 지우거나 로그아웃하면 다시 들어올 수 없어요.
+            이메일을 등록하면 지금 계정이 그대로 정식 계정이 돼요(팀·시간표·다이어리 유지).
+          </Text>
+          <Field label="이메일">
+            <Input value={upEmail} onChangeText={setUpEmail} placeholder="you@example.com" autoCapitalize="none" keyboardType="email-address" autoComplete="email" />
+          </Field>
+          <Field label="비밀번호">
+            <Input
+              value={upPassword}
+              onChangeText={setUpPassword}
+              placeholder="6자 이상"
+              secureTextEntry
+              autoComplete="new-password"
+              returnKeyType="go"
+              onSubmitEditing={upgrade}
+            />
+          </Field>
+          <Button title="정식 계정으로 전환" onPress={upgrade} loading={upgrading} />
+        </Card>
+      )}
 
       <Card>
         <Field label="표시 이름 (팀원에게 보여요)">
