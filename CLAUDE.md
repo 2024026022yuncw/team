@@ -26,7 +26,8 @@
 - `007_team_course.sql`: teams.course_name (팀의 수업) — 실행 완료
 - `008_friends.sql`: 친구(friend_code, friendships)·팀 초대(team_invites), RPC send_friend_request/accept_friend_request/invite_friend_to_team/accept_team_invite/my_team_invites — **2026-11-23 추가, 사용자 실행 필요(확인 전)**
 - `009_team_draws.sql`: 팀별 랜덤 뽑기 기록(team_draws), RPC run_team_draw(서버에서 무작위) — **2026-11-23 추가, 사용자 실행 필요(확인 전)**
-- 새 마이그레이션은 `010_...sql`로 만들고 schema.sql 끝에도 덧붙인다. 실행은 사용자에게 안내한다.
+- `010_draw_lock.sql`: run_team_draw 에 팀별 advisory lock + 15초 쿨다운(DRAW_TOO_SOON) — **2026-11-23 추가, 사용자 실행 필요(확인 전)**
+- 새 마이그레이션은 `011_...sql`로 만들고 schema.sql 끝에도 덧붙인다. 실행은 사용자에게 안내한다.
 - `supabase/diagnostics/`: 읽기 전용 진단 SQL(커밋 안 함, 로컬에만 있음)
 
 ## 시간표 이미지 인식 (api/parse-timetable.ts)

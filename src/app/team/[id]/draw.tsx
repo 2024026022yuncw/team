@@ -32,10 +32,33 @@ export default function DrawScreen() {
 
   const { data: history, reload } = useAsync<TeamDraw[]>(() => listTeamDraws(teamId), [teamId], []);
   useRealtime(`draws-${teamId}`, [{ table: 'team_draws', filter: `team_id=eq.${teamId}` }], reload);
+  const openedAt = useRef(Date.now());
+  const [now, setNow] = useState(Date.now());
 
   useEffect(() => () => {
     if (timer.current) clearTimeout(timer.current);
   }, []);
+
+  // 다른 팀원이 뽑으면 내 화면에도 그 결과를 바로 보여줌 (모두 같은 결과를 보게)
+  const latest = history[0];
+  useEffect(() => {
+    if (!latest || phase === 'spinning') return;
+    const isNew = new Date(latest.created_at).getTime() > openedAt.current;
+    if (isNew && latest.created_by !== userId && latest.id !== result?.id) {
+      setResult(latest);
+      setPhase('done');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [latest?.id]);
+
+  // 팀에서 방금 뽑았으면 15초 동안 다시 못 뽑음 (서버에서도 막음) → 남은 시간 표시
+  const COOLDOWN = 15_000;
+  const cooldownLeft = latest ? Math.max(0, COOLDOWN - (now - new Date(latest.created_at).getTime())) : 0;
+  useEffect(() => {
+    if (cooldownLeft <= 0) return;
+    const t = setInterval(() => setNow(Date.now()), 500);
+    return () => clearInterval(t);
+  }, [cooldownLeft > 0]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const participants = members.map((m) => m.user_id).filter((id) => !excluded.includes(id));
   const maxCount = Math.max(1, participants.length);
@@ -46,7 +69,7 @@ export default function DrawScreen() {
   }
 
   async function start() {
-    if (participants.length === 0 || phase === 'spinning') return;
+    if (participants.length === 0 || phase === 'spinning' || cooldownLeft > 0) return;
     setPhase('spinning');
     setResult(null);
 
@@ -55,9 +78,22 @@ export default function DrawScreen() {
     let failed = false;
     runTeamDraw(teamId, title.trim() || '발표자', participants, safeCount)
       .then((d) => (drawn = d))
-      .catch((e) => {
+      .catch(async (e) => {
         failed = true;
-        Alert.alert('뽑기 실패', errorMessage(e));
+        const msg = errorMessage(e);
+        if (msg.includes('DRAW_TOO_SOON')) {
+          // 동시에 누른 다른 팀원이 먼저 뽑음 → 그 결과를 보여줌
+          const list = await listTeamDraws(teamId).catch(() => [] as TeamDraw[]);
+          if (list[0]) {
+            setResult(list[0]);
+            setPhase('done');
+            setNow(Date.now());
+          }
+          reload();
+          Alert.alert('이미 뽑았어요', msg.replace(/^.*DRAW_TOO_SOON:\s*/, ''));
+          return;
+        }
+        Alert.alert('뽑기 실패', msg);
       });
 
     const pool = [...participants];
@@ -67,7 +103,8 @@ export default function DrawScreen() {
 
     const tick = () => {
       if (failed) {
-        setPhase('idle');
+        // 실패 처리(다른 팀원 결과 표시 등)는 catch 에서 함
+        setPhase((p) => (p === 'spinning' ? 'idle' : p));
         setHighlight(null);
         return;
       }
@@ -81,6 +118,7 @@ export default function DrawScreen() {
         const d: TeamDraw = drawn;
         setResult(d);
         setPhase('done');
+        setNow(Date.now());
         reload();
         return;
       }
@@ -140,6 +178,9 @@ export default function DrawScreen() {
           <>
             <Text style={{ fontSize: 40 }}>🎉</Text>
             <Text style={[styles.sub, { marginTop: 4 }]}>오늘의 {result.title}</Text>
+            {result.created_by !== userId && (
+              <Text style={[styles.muted, { marginTop: 2 }]}>{nameOf(result.created_by)} 님이 뽑았어요</Text>
+            )}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 16, marginTop: 12 }}>
               {result.winners.map((id) => (
                 <View key={id} style={{ alignItems: 'center' }}>
@@ -159,9 +200,9 @@ export default function DrawScreen() {
         </View>
       ) : (
         <Button
-          title={spinning ? '뽑는 중…' : '🎲 뽑기!'}
+          title={spinning ? '뽑는 중…' : cooldownLeft > 0 ? `방금 뽑았어요 (${Math.ceil(cooldownLeft / 1000)}초 후 가능)` : '🎲 뽑기!'}
           onPress={start}
-          disabled={spinning || participants.length === 0}
+          disabled={spinning || participants.length === 0 || cooldownLeft > 0}
           style={{ marginBottom: 8 }}
         />
       )}
