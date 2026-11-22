@@ -31,7 +31,8 @@
 - `011_course_short.sql`: teams.course_short (아이콘 약칭, 최대 4글자) — **2026-11-23 추가, 사용자 실행 필요(확인 전)**
 - `012_member_set_course.sql`: (013 에서 취소됨 — 실행 안 해도 됨)
 - `013_my_course_short.sql`: set_team_course 삭제(수업은 팀장만) + user_team_prefs(나만 보이는 약칭) — **2026-11-23 추가, 사용자 실행 필요(확인 전)**. 아이콘 표시 순서: 내 약칭 → teams.course_short(팀장) → shortCourse 자동
-- 새 마이그레이션은 `014_...sql`로 만들고 schema.sql 끝에도 덧붙인다. 실행은 사용자에게 안내한다.
+- `014_friend_teams.sql`: teams.allow_friend_join(기본 true) + RPC list_friend_teams/join_friend_team — 친구가 속한 팀에 초대 없이 참여 — **2026-11-23 추가, 사용자 실행 필요(확인 전)**
+- 새 마이그레이션은 `015_...sql`로 만들고 schema.sql 끝에도 덧붙인다. 실행은 사용자에게 안내한다.
 - `supabase/diagnostics/`: 읽기 전용 진단 SQL(커밋 안 함, 로컬에만 있음)
 
 ## 시간표 이미지 인식 (api/parse-timetable.ts)

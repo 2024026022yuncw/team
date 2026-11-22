@@ -15,6 +15,7 @@ import {
   removeMember,
   listMyCourseShorts,
   sendFriendRequest,
+  setAllowFriendJoin,
   setMyCourseShort,
   updateRoleTitle,
   updateTeam,
@@ -254,6 +255,28 @@ export function MembersTab() {
           </View>
         ) : null}
         {team.description ? <Text style={[styles.sub, { marginTop: 8 }]}>{team.description}</Text> : null}
+        {/* 친구 팀 목록 공개 (팀장만 변경) */}
+        <View style={[styles.row, { justifyContent: 'space-between', marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderColor: colors.border, gap: 8 }]}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.sub}>💛 친구 팀 목록에 공개</Text>
+            <Text style={styles.muted}>
+              {team.allow_friend_join !== false ? '팀원의 친구가 초대 없이 참여할 수 있어요' : '초대나 초대 코드로만 참여할 수 있어요'}
+            </Text>
+          </View>
+          {isOwner ? (
+            <Chip
+              label={team.allow_friend_join !== false ? '공개 중' : '비공개'}
+              active={team.allow_friend_join !== false}
+              onPress={() =>
+                setAllowFriendJoin(team.id, team.allow_friend_join === false)
+                  .then(reload)
+                  .catch((e) => Alert.alert('저장 실패', errorMessage(e)))
+              }
+            />
+          ) : (
+            <Text style={styles.muted}>{team.allow_friend_join !== false ? '공개' : '비공개'}</Text>
+          )}
+        </View>
       </Card>
 
       <SectionTitle>멤버 {members.length}명</SectionTitle>

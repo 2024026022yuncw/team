@@ -64,18 +64,22 @@ export default function TeamsScreen() {
               안녕하세요, {profile?.display_name || '팀원'}님 👋
             </Text>
             <Text style={[styles.sub, { marginTop: 4 }]}>참여 중인 팀을 선택하세요.</Text>
-            <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
+            <View style={{ flexDirection: 'row', gap: 6, marginTop: 16 }}>
               <Button
                 title="팀 만들기"
-                icon="add-circle-outline"
                 onPress={() => router.push('/team/create')}
                 style={{ flex: 1 }}
               />
               <Button
                 title="코드로 참여"
-                icon="enter-outline"
                 variant="secondary"
                 onPress={() => router.push('/team/join')}
+                style={{ flex: 1 }}
+              />
+              <Button
+                title="💛 친구 팀"
+                variant="secondary"
+                onPress={() => router.push('/team/friend-teams')}
                 style={{ flex: 1 }}
               />
             </View>

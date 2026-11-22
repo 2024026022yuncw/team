@@ -570,3 +570,26 @@ export async function listMyTeamsWithPrefs(): Promise<Team[]> {
   const [teams, shorts] = await Promise.all([listMyTeams(), listMyCourseShorts().catch(() => new Map<string, string>())]);
   return teams.map((t) => ({ ...t, my_course_short: shorts.get(t.id) ?? '' }));
 }
+
+// ------------------------------------------------------------------ 친구 팀 참여
+export type FriendTeam = {
+  team_id: string;
+  team_name: string;
+  course_name: string;
+  course_short: string;
+  member_count: number;
+  friend_names: string[];
+};
+
+export async function listFriendTeams(): Promise<FriendTeam[]> {
+  return check(await supabase.rpc('list_friend_teams')) as FriendTeam[];
+}
+
+export async function joinFriendTeam(teamId: string) {
+  check(await supabase.rpc('join_friend_team', { p_team_id: teamId }));
+}
+
+/** 팀장: 친구 팀 목록 공개 여부 */
+export async function setAllowFriendJoin(teamId: string, allow: boolean) {
+  check(await supabase.from('teams').update({ allow_friend_join: allow }).eq('id', teamId));
+}

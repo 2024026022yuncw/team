@@ -10,6 +10,7 @@ export type Team = {
   course_name: string; // 이 팀플의 수업 (없으면 빈 문자열)
   course_short?: string; // 팀장이 정한 아이콘 약칭 (비면 과목명에서 자동)
   my_course_short?: string; // 나만 보이는 약칭 (user_team_prefs)
+  allow_friend_join?: boolean; // 친구의 친구가 "친구 팀" 목록에서 바로 참여 가능 (기본 true)
   invite_code: string;
   owner_id: string;
   created_at: string;
