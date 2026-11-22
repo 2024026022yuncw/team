@@ -214,9 +214,17 @@ async function ask(apiKey: string, context: string, messages: Msg[]): Promise<st
   try {
     return await call(MODEL, 35_000);
   } catch (err) {
-    if (!(err instanceof TimeoutError)) throw err;
+    // 시간 초과·혼잡(503)·일시 오류(500)·사용량 초과(429, 모델별 한도) → 가벼운 모델로 한 번 더
+    if (!shouldFallback(err)) throw err;
+    console.warn('[assistant] fallback to', FALLBACK_MODEL, describeGeminiError(err).status ?? 'timeout');
     return await call(FALLBACK_MODEL, 15_000);
   }
+}
+
+function shouldFallback(err: unknown): boolean {
+  if (err instanceof TimeoutError) return true;
+  const { status } = describeGeminiError(err);
+  return status === 503 || status === 500 || status === 429;
 }
 
 // ---------------------------------------------------------------- 핸들러

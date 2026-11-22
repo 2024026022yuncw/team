@@ -154,7 +154,11 @@ export async function POST(request: Request): Promise<Response> {
     try {
       text = await callModel(MODEL, 40_000);
     } catch (err) {
-      if (!(err instanceof TimeoutError) || MODEL === FALLBACK_MODEL) throw err;
+      // 시간 초과·혼잡(503)·일시 오류(500)·사용량 초과(429, 모델별 한도) → 가벼운 모델로 한 번 더
+      const status = describeGeminiError(err).status;
+      const retryable = err instanceof TimeoutError || status === 503 || status === 500 || status === 429;
+      if (!retryable || MODEL === FALLBACK_MODEL) throw err;
+      console.warn('[parse-timetable] fallback to', FALLBACK_MODEL, status ?? 'timeout');
       text = await callModel(FALLBACK_MODEL, 15_000);
     }
 

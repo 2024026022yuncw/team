@@ -10,6 +10,7 @@
 ## 배포 / 외부 서비스
 - GitHub: https://github.com/2024026022yuncw/team (브랜치 `main`). **푸시하면 Vercel이 자동 배포.**
 - Vercel 프로젝트: https://vercel.com/2024026022yuncw-1060s-projects/team
+  - **운영 주소(항상 최신): https://team-sigma-teal.vercel.app** — 사용자에게는 이 주소를 안내한다.
   - `team-xxxx-...vercel.app`처럼 무작위 글자가 들어간 주소는 **그 배포에 고정된 주소**라 새 버전이 반영되지 않는다. 사용자가 자주 헷갈렸다. 최신 버전은 Deployments의 맨 위 배포 → Visit, 또는 Overview의 Visit 버튼으로 연다.
   - 환경변수: `GEMINI_API_KEY` (Production). 선택: `GEMINI_MODEL`
 - Supabase 프로젝트 ref: `vrezbqnabniscsoqkpqi`. URL과 publishable 키는 `.env`에 커밋돼 있다(공개 값, RLS로 보호).
