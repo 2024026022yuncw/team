@@ -14,8 +14,8 @@ import {
   listTeamPendingInvitees,
   removeMember,
   sendFriendRequest,
+  setTeamCourse,
   updateRoleTitle,
-  updateTeam,
 } from '@/lib/api';
 import { useUserId } from '@/lib/auth';
 import { useAsync } from '@/lib/hooks';
@@ -79,7 +79,7 @@ export function MembersTab() {
 
   async function saveCourse() {
     try {
-      await updateTeam(team!.id, { course_name: courseText.trim(), course_short: courseText.trim() ? courseShortText.trim() : '' });
+      await setTeamCourse(team!.id, courseText.trim(), courseShortText.trim());
       setCourseOpen(false);
       reload();
     } catch (e) {
@@ -194,18 +194,17 @@ export function MembersTab() {
               {team.course_name ? `📚 ${team.course_name}` : '지정 안 됨'}
             </Text>
           </View>
-          {isOwner && (
-            <Button
-              title={team.course_name ? '변경' : '지정'}
-              variant="secondary"
-              small
-              onPress={() => {
-                setCourseText(team.course_name);
-                setCourseShortText(team.course_short ?? '');
-                setCourseOpen(true);
-              }}
-            />
-          )}
+          {/* 수업·약칭은 팀원 누구나 변경 가능 (서버 함수 set_team_course 에서 멤버 확인) */}
+          <Button
+            title={team.course_name ? '변경' : '지정'}
+            variant="secondary"
+            small
+            onPress={() => {
+              setCourseText(team.course_name);
+              setCourseShortText(team.course_short ?? '');
+              setCourseOpen(true);
+            }}
+          />
         </View>
         {team.description ? <Text style={[styles.sub, { marginTop: 8 }]}>{team.description}</Text> : null}
       </Card>

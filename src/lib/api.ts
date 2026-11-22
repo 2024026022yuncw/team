@@ -541,3 +541,10 @@ export async function listTeamDraws(teamId: string): Promise<TeamDraw[]> {
 export async function deleteTeamDraw(id: string) {
   check(await supabase.from('team_draws').delete().eq('id', id));
 }
+
+/** 팀의 수업·아이콘 약칭 변경 (팀원 누구나, 서버에서 멤버인지 확인) */
+export async function setTeamCourse(teamId: string, courseName: string, courseShort: string) {
+  check(
+    await supabase.rpc('set_team_course', { p_team_id: teamId, p_course_name: courseName, p_course_short: courseShort }),
+  );
+}
