@@ -257,7 +257,10 @@ export async function POST(request: Request): Promise<Response> {
     console.error('[assistant]', err);
     const { status, message } = describeGeminiError(err);
     if (status === 429) return json({ error: '오늘 무료 사용량을 다 썼거나 요청이 많아요. 잠시 후 다시 시도해주세요.' }, 429);
-    if (status === 401 || status === 403 || /API key/i.test(message ?? '')) return json({ error: '서버의 Gemini API 키를 확인해주세요.' }, 500);
+    if (status === 401 || status === 403 || /API key/i.test(message ?? '')) {
+      // 키가 있어도 권한·모델·지역 문제로 거절될 수 있어 구글의 실제 이유를 함께 보여줌
+      return json({ error: `Gemini 가 요청을 거절했어요${status ? ` (${status})` : ''}: ${message ?? '이유 없음'}` }, 502);
+    }
     return json({ error: `AI 서버 오류${status ? ` (${status})` : ''}: ${message ?? '알 수 없는 오류'}` }, 502);
   }
 }
