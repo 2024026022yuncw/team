@@ -34,7 +34,7 @@
 ## 시간표 이미지 인식 (api/parse-timetable.ts)
 - Vercel 서버 함수. **Google Gemini 무료 API**를 쓴다. 사용자가 유료 Anthropic 키를 원하지 않아서 바꿨다.
 - `@google/genai`의 `ai.models.generateContent` 사용. (interactions 베타 API는 v1에서 이미지가 안 되고 느려서 버렸다.)
-- 모델 `gemini-3.8-flash`, thinkingLevel `LOW`. `MINIMAL`은 이 모델에서 400. 생각 단계 설정이 거부되면 설정 없이 재시도한다.
+- 공통 헬퍼 `api/_gemini.ts`의 `generateText`: 모델 체인 3.8-flash → 3.6-flash → 3.5-flash-lite → 4-hydrogen 을 차례로 시도(503/500/429/404/시간 초과 시 다음 모델, 전체 52초). thinkingLevel LOW, 거부되면 설정 없이 재시도. 시간표 인식·AI 비서 공통.
 - 시간 제한: 기본 모델 40초 → `gemini-3.5-flash-lite` 15초 → 실패 시 안내(총 55초 < Vercel 60초)
 - 로그인한 사용자만 호출 가능(Supabase 토큰 확인). 오류 원인은 `describeGeminiError`가 SDK 오류의 body와 message 양쪽에서 읽는다.
 

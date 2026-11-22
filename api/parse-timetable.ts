@@ -1,14 +1,8 @@
 // Vercel 서버 함수: 시간표 이미지(에브리타임 캡처 등) → 시간표 항목 JSON
 // POST /api/parse-timetable   body: { image: base64, mediaType: "image/jpeg" | "image/png" | ... }
 // 필요 환경변수 (Vercel > Settings > Environment Variables): GEMINI_API_KEY (Google AI Studio 무료 키)
-// 선택: GEMINI_MODEL (기본 gemini-3.8-flash)
-import { ApiError, GoogleGenAI, ThinkingLevel } from '@google/genai';
-
-const MODEL = process.env.GEMINI_MODEL ?? 'gemini-3.8-flash';
-// 기본 모델이 너무 오래 걸릴 때 한 번 더 시도할 가벼운 모델
-const FALLBACK_MODEL = 'gemini-3.5-flash-lite';
-
-class TimeoutError extends Error {}
+// 선택: GEMINI_MODEL (맨 먼저 시도할 모델)
+import { describeGeminiError, generateText, TimeoutError } from './_gemini';
 
 // 공개 값 (앱의 .env 와 동일). 로그인한 사용자만 이 API 를 쓰도록 토큰 확인에 사용
 const SUPABASE_URL = process.env.SUPABASE_URL ?? 'https://vrezbqnabniscsoqkpqi.supabase.co';
@@ -98,69 +92,16 @@ export async function POST(request: Request): Promise<Response> {
   if (!image) return json({ error: '이미지가 없어요.' }, 400);
   if (image.length > MAX_BASE64_LENGTH) return json({ error: '이미지가 너무 커요. 더 작은 캡처로 시도해주세요.' }, 413);
 
-  const ai = new GoogleGenAI({ apiKey });
-
-  /**
-   * 모델 한 번 호출. timeoutMs 안에 답이 없으면 취소하고 TimeoutError 를 던짐.
-   * 시간표 읽기는 깊은 추론이 필요 없어 생각 단계를 LOW 로 낮춤(속도). 모델이 그 설정을
-   * 거부하면(모델마다 지원 단계가 다름) 설정 없이 같은 시간 안에서 한 번 더 시도.
-   */
-  async function callModel(model: string, timeoutMs: number): Promise<string> {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    const startedAt = Date.now();
-    const request = (withThinking: boolean) =>
-      ai.models.generateContent({
-        model,
-        contents: [
-          {
-            role: 'user',
-            parts: [{ inlineData: { mimeType: mediaType, data: image } }, { text: PROMPT }],
-          },
-        ],
-        config: {
-          responseMimeType: 'application/json',
-          responseJsonSchema: SCHEMA,
-          ...(withThinking ? { thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } } : {}),
-          abortSignal: controller.signal,
-        },
-      });
-    try {
-      let res;
-      try {
-        res = await request(true);
-      } catch (err) {
-        const { status, message } = describeGeminiError(err);
-        if (controller.signal.aborted || status !== 400 || !/thinking/i.test(message ?? '')) throw err;
-        console.warn(`[parse-timetable] ${model} rejected thinking level, retrying without it`);
-        res = await request(false);
-      }
-      console.log(`[parse-timetable] ${model} ${Date.now() - startedAt}ms`);
-      return res.text ?? '';
-    } catch (err) {
-      if (controller.signal.aborted) {
-        console.warn(`[parse-timetable] ${model} timeout after ${Date.now() - startedAt}ms`);
-        throw new TimeoutError();
-      }
-      throw err;
-    } finally {
-      clearTimeout(timer);
-    }
-  }
-
   try {
-    // Vercel 함수 제한 시간 안에 끝나도록: 기본 모델 40초 → 안 되면 가벼운 모델 15초
-    let text: string;
-    try {
-      text = await callModel(MODEL, 40_000);
-    } catch (err) {
-      // 시간 초과·혼잡(503)·일시 오류(500)·사용량 초과(429, 모델별 한도) → 가벼운 모델로 한 번 더
-      const status = describeGeminiError(err).status;
-      const retryable = err instanceof TimeoutError || status === 503 || status === 500 || status === 429;
-      if (!retryable || MODEL === FALLBACK_MODEL) throw err;
-      console.warn('[parse-timetable] fallback to', FALLBACK_MODEL, status ?? 'timeout');
-      text = await callModel(FALLBACK_MODEL, 15_000);
-    }
+    // 모델 여러 개를 차례로 시도 (혼잡·시간 초과 시 다음 모델), 전체 52초 안에 (Vercel 60초 제한)
+    const text = await generateText(
+      apiKey,
+      {
+        contents: [{ role: 'user', parts: [{ inlineData: { mimeType: mediaType, data: image } }, { text: PROMPT }] }],
+        config: { responseMimeType: 'application/json', responseJsonSchema: SCHEMA },
+      },
+      { tag: 'parse-timetable' },
+    );
 
     let parsed: { entries?: unknown; warning?: unknown };
     try {
@@ -205,7 +146,10 @@ export async function POST(request: Request): Promise<Response> {
       return json({ error: '오늘 무료 사용량을 다 썼거나 요청이 많아요. 잠시 후 다시 시도해주세요.' }, 429);
     }
     if (status === 404) {
-      return json({ error: `AI 모델(${MODEL})을 사용할 수 없어요. (${message || 'not found'})` }, 502);
+      return json({ error: `AI 모델을 사용할 수 없어요. (${message || 'not found'})` }, 502);
+    }
+    if (status === 503 || status === 500) {
+      return json({ error: '지금 구글 AI가 많이 붐벼요 (여러 모델을 시도했지만 모두 혼잡). 1~2분 뒤 다시 시도해주세요.' }, 503);
     }
     if (status === 400) {
       return json({ error: `요청을 처리할 수 없어요: ${message || '잘못된 요청'}` }, 400);
@@ -214,37 +158,3 @@ export async function POST(request: Request): Promise<Response> {
   }
 }
 
-/**
- * Gemini SDK 는 API 종류에 따라 서로 다른 오류 클래스를 던지므로(ApiError, BadRequestError 등)
- * 공통 필드(status/statusCode, body)에서 상태 코드와 구글의 원인 메시지를 꺼냄
- */
-function describeGeminiError(err: unknown): { status?: number; reason?: string; message?: string } {
-  if (!err || typeof err !== 'object') return { message: String(err) };
-  const e = err as { status?: unknown; statusCode?: unknown; body?: unknown; message?: unknown };
-  const status = typeof e.status === 'number' ? e.status : typeof e.statusCode === 'number' ? e.statusCode : undefined;
-
-  let reason: string | undefined;
-  let message: string | undefined;
-  try {
-    // interactions API 는 body 에, generateContent API(ApiError)는 message 안에 JSON 으로 원인을 담음
-    const jsonInMessage =
-      e.body === undefined && typeof e.message === 'string' && e.message.includes('{')
-        ? e.message.slice(e.message.indexOf('{'))
-        : undefined;
-    const source = e.body ?? jsonInMessage;
-    const raw = typeof source === 'string' ? JSON.parse(source) : source;
-    const body = Array.isArray(raw) ? raw[0] : raw;
-    const g = body?.error;
-    if (g) {
-      message = typeof g.message === 'string' ? g.message : undefined;
-      reason =
-        (Array.isArray(g.details) ? g.details.find((d: { reason?: string }) => d?.reason)?.reason : undefined) ??
-        (typeof g.status === 'string' ? g.status : undefined);
-    }
-  } catch {
-    // body 가 JSON 이 아니면 무시
-  }
-  if (!message && err instanceof ApiError) message = err.message;
-  if (!message && typeof e.message === 'string') message = e.message.slice(0, 300);
-  return { status, reason, message };
-}

@@ -3,16 +3,13 @@
 // 필요 환경변수: GEMINI_API_KEY (시간표 인식과 같은 키)
 //
 // 사용자의 로그인 토큰으로 Supabase 를 조회하므로 RLS 가 그대로 적용됨 → 본인이 볼 수 있는 데이터만 AI 에 전달
-import { GoogleGenAI, ThinkingLevel } from '@google/genai';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-const MODEL = process.env.GEMINI_MODEL ?? 'gemini-3.8-flash';
-const FALLBACK_MODEL = 'gemini-3.5-flash-lite';
+import { describeGeminiError, generateText, TimeoutError } from './_gemini';
+
 const SUPABASE_URL = process.env.SUPABASE_URL ?? 'https://vrezbqnabniscsoqkpqi.supabase.co';
 const SUPABASE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY ?? 'sb_publishable_J70LKgYpqJFL0m51CQJjVg_xM673hHz';
 const DAYS = ['일', '월', '화', '수', '목', '금', '토'];
-
-class TimeoutError extends Error {}
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json; charset=utf-8' } });
@@ -160,71 +157,20 @@ const SYSTEM = `너는 대학생 팀 프로젝트 앱 "팀플모임"의 AI 비�
   (팀 일정: 팀 → 캘린더 +, 시간표·개인 일정: 시간표 탭, 할 일: 팀 → 할 일, 공지: 팀 → 공지)`;
 
 // ---------------------------------------------------------------- Gemini
-function describeGeminiError(err: unknown): { status?: number; message?: string } {
-  if (!err || typeof err !== 'object') return { message: String(err) };
-  const e = err as { status?: unknown; statusCode?: unknown; body?: unknown; message?: unknown };
-  const status = typeof e.status === 'number' ? e.status : typeof e.statusCode === 'number' ? e.statusCode : undefined;
-  let message: string | undefined;
-  try {
-    const src = e.body ?? (typeof e.message === 'string' && e.message.includes('{') ? e.message.slice(e.message.indexOf('{')) : undefined);
-    const raw = typeof src === 'string' ? JSON.parse(src) : src;
-    const body = Array.isArray(raw) ? raw[0] : raw;
-    if (typeof body?.error?.message === 'string') message = body.error.message;
-  } catch {
-    // 무시
-  }
-  if (!message && typeof e.message === 'string') message = e.message.slice(0, 300);
-  return { status, message };
-}
-
 type Msg = { role: 'user' | 'model'; text: string };
 
-async function ask(apiKey: string, context: string, messages: Msg[]): Promise<string> {
-  const ai = new GoogleGenAI({ apiKey });
-  const call = async (model: string, timeoutMs: number) => {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    const request = (withThinking: boolean) =>
-      ai.models.generateContent({
-        model,
-        contents: messages.map((m) => ({ role: m.role, parts: [{ text: m.text }] })),
-        config: {
-          systemInstruction: `${SYSTEM}\n\n[내 데이터]\n${context}`,
-          ...(withThinking ? { thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } } : {}),
-          abortSignal: controller.signal,
-        },
-      });
-    try {
-      let res;
-      try {
-        res = await request(true);
-      } catch (err) {
-        const { status, message } = describeGeminiError(err);
-        if (controller.signal.aborted || status !== 400 || !/thinking/i.test(message ?? '')) throw err;
-        res = await request(false);
-      }
-      return res.text ?? '';
-    } catch (err) {
-      if (controller.signal.aborted) throw new TimeoutError();
-      throw err;
-    } finally {
-      clearTimeout(timer);
-    }
-  };
-  try {
-    return await call(MODEL, 35_000);
-  } catch (err) {
-    // 시간 초과·혼잡(503)·일시 오류(500)·사용량 초과(429, 모델별 한도) → 가벼운 모델로 한 번 더
-    if (!shouldFallback(err)) throw err;
-    console.warn('[assistant] fallback to', FALLBACK_MODEL, describeGeminiError(err).status ?? 'timeout');
-    return await call(FALLBACK_MODEL, 15_000);
-  }
-}
+function ask(apiKey: string, context: string, messages: Msg[]): Promise<string> {
+  return generateText(
+    apiKey,
+    {
+      contents: messages.map((m) => ({ role: m.role, parts: [{ text: m.text }] })),
+      config: { systemInstruction: `${SYSTEM}
 
-function shouldFallback(err: unknown): boolean {
-  if (err instanceof TimeoutError) return true;
-  const { status } = describeGeminiError(err);
-  return status === 503 || status === 500 || status === 429;
+[내 데이터]
+${context}` },
+    },
+    { tag: 'assistant', budgetMs: 50_000 },
+  );
 }
 
 // ---------------------------------------------------------------- 핸들러
@@ -265,6 +211,9 @@ export async function POST(request: Request): Promise<Response> {
     console.error('[assistant]', err);
     const { status, message } = describeGeminiError(err);
     if (status === 429) return json({ error: '오늘 무료 사용량을 다 썼거나 요청이 많아요. 잠시 후 다시 시도해주세요.' }, 429);
+    if (status === 503 || status === 500) {
+      return json({ error: '지금 구글 AI가 많이 붐벼요 (여러 모델을 시도했지만 모두 혼잡). 1~2분 뒤 다시 물어봐 주세요.' }, 503);
+    }
     if (status === 401 || status === 403 || /API key/i.test(message ?? '')) {
       // 키가 있어도 권한·모델·지역 문제로 거절될 수 있어 구글의 실제 이유를 함께 보여줌
       return json({ error: `Gemini 가 요청을 거절했어요${status ? ` (${status})` : ''}: ${message ?? '이유 없음'}` }, 502);
