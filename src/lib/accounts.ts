@@ -104,9 +104,24 @@ export async function switchToAccount(userId: string) {
   saveSession(data.session, target.name);
 }
 
-/** "다른 계정 추가": 지금 계정은 저장해 두고, 이 기기에서만 로그아웃(서버 세션은 유지) → 로그인 화면으로 */
-export async function prepareAddAccount() {
+/**
+ * "다른 계정 추가": 지금 계정은 저장해 두고, 로그인된 상태 그대로 로그인 화면을 엶.
+ * ⚠️ signOut 은 scope:'local' 이어도 서버에서 지금 세션을 무효화하므로 쓰면 안 됨
+ *    (저장해 둔 토큰이 죽어서 나중에 전환 실패). 새 계정으로 로그인하면 화면의 세션만 바뀜.
+ */
+let addingFrom: string | null = null;
+
+export async function startAddingAccount(): Promise<void> {
   const { data } = await supabase.auth.getSession();
   if (data.session) saveSession(data.session);
-  await supabase.auth.signOut({ scope: 'local' });
+  addingFrom = data.session?.user.id ?? null;
+}
+
+/** 추가 중이면 시작한 계정의 id (AuthGate 가 이 계정일 땐 로그인 화면에 머묾) */
+export function addingAccountFrom(): string | null {
+  return addingFrom;
+}
+
+export function finishAddingAccount() {
+  addingFrom = null;
 }

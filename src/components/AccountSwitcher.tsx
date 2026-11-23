@@ -6,7 +6,7 @@ import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { Avatar, Card, styles } from '@/components/ui';
 import {
   listSavedAccounts,
-  prepareAddAccount,
+  startAddingAccount,
   removeSavedAccount,
   subscribeAccounts,
   switchToAccount,
@@ -56,7 +56,9 @@ export function AccountSwitcher({ currentUserId }: { currentUserId?: string }) {
   }
 
   async function addAccount() {
-    await prepareAddAccount(); // 지금 계정은 저장해 두고 로그인 화면으로
+    // 지금 계정은 저장하고, 로그아웃 없이 로그인 화면으로 (서버 세션 유지)
+    await startAddingAccount();
+    router.push('/login');
   }
 
   const others = accounts.filter((a) => a.userId !== currentUserId);

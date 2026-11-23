@@ -5,6 +5,7 @@ import { Platform, ScrollView, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { Loading, styles } from '@/components/ui';
+import { addingAccountFrom, finishAddingAccount } from '@/lib/accounts';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import { colors } from '@/lib/theme';
@@ -30,6 +31,9 @@ function AuthGate() {
       }
       router.replace('/login');
     } else if (session && inAuth) {
+      // "다른 계정 추가" 중이면 다른 사용자로 로그인할 때까지 로그인 화면에 머묾
+      if (addingAccountFrom() === session.user.id) return;
+      finishAddingAccount();
       router.replace('/');
       const next = pendingPath.current;
       pendingPath.current = null;

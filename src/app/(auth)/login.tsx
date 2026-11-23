@@ -1,15 +1,20 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, Text, View, type TextInputInstance } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AccountSwitcher } from '@/components/AccountSwitcher';
 import { Button, Field, Input, Segmented, styles } from '@/components/ui';
+import { finishAddingAccount } from '@/lib/accounts';
 import { Alert } from '@/lib/alert';
+import { useAuth } from '@/lib/auth';
 import { errorMessage, supabase } from '@/lib/supabase';
 import { colors } from '@/lib/theme';
 
 export default function LoginScreen() {
+  const router = useRouter();
+  const { session } = useAuth();
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -20,6 +25,13 @@ export default function LoginScreen() {
 
   const [guestBusy, setGuestBusy] = useState(false);
 
+  /** 다른 계정 추가 중이었다면 끝내고 처음 화면으로 (같은 계정으로 다시 로그인한 경우도 포함) */
+  function doneAdding() {
+    if (!session) return;
+    finishAddingAccount();
+    router.replace('/');
+  }
+
   /** 게스트(익명 로그인): 진짜 계정이 만들어지고 이 기기에 로그인 상태가 저장됨 */
   async function startGuest() {
     if (guestBusy) return;
@@ -28,6 +40,7 @@ export default function LoginScreen() {
       const tag = String(Math.floor(1000 + Math.random() * 9000));
       const { error } = await supabase.auth.signInAnonymously({ options: { data: { display_name: `게스트${tag}` } } });
       if (error) throw error;
+      doneAdding();
     } catch (e) {
       Alert.alert('게스트 시작 실패', errorMessage(e));
     } finally {
@@ -50,6 +63,7 @@ export default function LoginScreen() {
       if (mode === 'login') {
         const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
         if (error) throw error;
+        doneAdding();
       } else {
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
@@ -91,8 +105,24 @@ export default function LoginScreen() {
             <Text style={[styles.sub, { marginTop: 6 }]}>일정 공유부터 역할 분담까지 한 곳에서</Text>
           </View>
 
+          {/* "다른 계정 추가" 중: 지금 계정은 그대로 살아 있음 */}
+          {session && (
+            <View style={[styles.row, { justifyContent: 'space-between', marginBottom: 12, backgroundColor: colors.primarySoft, borderRadius: 12, padding: 12 }]}>
+              <Text style={{ color: colors.primary, fontWeight: '600', flex: 1 }}>다른 계정 추가 중 · 지금 계정은 저장돼 있어요</Text>
+              <Button
+                title="취소"
+                small
+                variant="secondary"
+                onPress={() => {
+                  finishAddingAccount();
+                  router.replace('/');
+                }}
+              />
+            </View>
+          )}
+
           {/* 이 기기에 저장된 다른 계정 */}
-          <AccountSwitcher />
+          <AccountSwitcher currentUserId={session?.user.id} />
 
           <Segmented
             options={[
