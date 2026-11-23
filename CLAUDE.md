@@ -35,8 +35,9 @@
 - `014_friend_teams.sql`: teams.allow_friend_join(기본 true) + RPC list_friend_teams/join_friend_team — 친구가 속한 팀에 초대 없이 참여 — 실행 완료(2026-11-23 REST로 확인)
 - `015_member_share_friends.sql`: team_members.share_with_friends(본인만 변경, 트리거) — 친구 팀 목록은 팀장 공개 AND 그 친구가 보이기 켠 팀만 — 실행 완료(2026-11-23 REST로 확인)
 - `016_guest.sql`: handle_new_user 가 이메일 없는 게스트도 처리(이름 기본 "게스트") — 트리거 함수라 REST로 실행 여부 확인 불가. 앱이 게스트 이름(display_name)을 넘기므로 실행 전에도 게스트 가입은 됨. 사용자에게 실행했는지 물어볼 것
+- `017_notifications.sql`: 알림함 notifications + 트리거(일정 생성·시간 변경, 공지·회의록, 투표, 할 일 배정, 뽑기, 팀원 합류, 친구 요청·수락, 팀 초대). 본인 행동은 본인에게 알리지 않음 — **2026-11-23 추가, 사용자 실행 필요(확인 전)**
 - 대시보드 "Allow anonymous sign-ins": 2026-11-23 켜짐 확인(/auth/v1/settings 의 anonymous_users:true)
-- 새 마이그레이션은 `017_...sql`로 만들고 schema.sql 끝에도 덧붙인다. 실행은 사용자에게 안내한다.
+- 새 마이그레이션은 `018_...sql`로 만들고 schema.sql 끝에도 덧붙인다. 실행은 사용자에게 안내한다.
 - `supabase/diagnostics/`: 읽기 전용 진단 SQL(커밋 안 함, 로컬에만 있음)
 
 ## AI 기능 (Gemini 무료 키: 시간표 이미지 인식 api/parse-timetable.ts, AI 비서 api/assistant.ts)

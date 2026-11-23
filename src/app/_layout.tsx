@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Loading, styles } from '@/components/ui';
 import { addingAccountFrom, finishAddingAccount } from '@/lib/accounts';
 import { AuthProvider, useAuth } from '@/lib/auth';
+import { NotificationsProvider } from '@/lib/notifications';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import { colors } from '@/lib/theme';
 
@@ -68,6 +69,7 @@ function AuthGate() {
       <Stack.Screen name="timetable-edit" options={{ title: '시간표', presentation: 'modal' }} />
       <Stack.Screen name="timetable-import" options={{ title: '이미지로 불러오기' }} />
       <Stack.Screen name="assistant" options={{ title: '🤖 AI 비서' }} />
+      <Stack.Screen name="notifications" options={{ title: '🔔 알림' }} />
     </Stack>
   );
 }
@@ -105,7 +107,9 @@ export default function RootLayout() {
       <View style={Platform.OS === 'web' ? webFrame : { flex: 1 }}>
         {isSupabaseConfigured ? (
           <AuthProvider>
-            <AuthGate />
+            <NotificationsProvider>
+              <AuthGate />
+            </NotificationsProvider>
           </AuthProvider>
         ) : (
           <SetupNeeded />

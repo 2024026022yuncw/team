@@ -1,6 +1,8 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Tabs, useRouter } from 'expo-router';
-import { Pressable, Text } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
+
+import { NotificationBell } from '@/components/NotificationList';
 
 import { colors } from '@/lib/theme';
 
@@ -36,7 +38,12 @@ export default function TabLayout() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textMuted,
         headerTitleStyle: { fontWeight: '700' },
-        headerRight: () => <AssistantButton />,
+        headerRight: () => (
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <NotificationBell />
+            <AssistantButton />
+          </View>
+        ),
         sceneStyle: { backgroundColor: colors.bg },
       }}
     >

@@ -3,11 +3,13 @@ import { useRouter } from 'expo-router';
 import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
 
 import { TeamIcon } from '@/components/CoursePicker';
+import { NotificationRow } from '@/components/NotificationList';
 import { Button, Card, EmptyState, Loading, styles } from '@/components/ui';
 import { Alert } from '@/lib/alert';
 import { acceptTeamInvite, declineTeamInvite, listMyTeamInvites, listMyTeamsWithPrefs } from '@/lib/api';
 import { useAuth, useUserId } from '@/lib/auth';
 import { useAsync, useRealtime } from '@/lib/hooks';
+import { useNotifications } from '@/lib/notifications';
 import { errorMessage } from '@/lib/supabase';
 import { colors } from '@/lib/theme';
 import type { Team, TeamInvite } from '@/lib/types';
@@ -16,6 +18,8 @@ export default function TeamsScreen() {
   const router = useRouter();
   const { profile, session } = useAuth();
   const userId = useUserId();
+  const { items: notes, unread } = useNotifications();
+  const unreadNotes = notes.filter((n) => !n.read_at);
   const { data: teams, loading, reload } = useAsync<Team[]>(listMyTeamsWithPrefs, [], []);
   const { data: invites, setData: setInvites, reload: reloadInvites } = useAsync<TeamInvite[]>(listMyTeamInvites, [], []);
   useRealtime(`my-invites-${userId}`, [{ table: 'team_invites', filter: `invitee=eq.${userId}` }], reloadInvites);
@@ -91,6 +95,21 @@ export default function TeamsScreen() {
                 style={{ flex: 1 }}
               />
             </View>
+
+            {/* 최근 안 읽은 알림 */}
+            {unreadNotes.length > 0 && (
+              <Card style={{ marginTop: 16, paddingVertical: 6, paddingHorizontal: 6 }}>
+                <View style={[styles.row, { justifyContent: 'space-between', paddingHorizontal: 8, paddingTop: 6 }]}>
+                  <Text style={{ fontWeight: '700', color: colors.text }}>🔔 새 알림 {unread}</Text>
+                  <Pressable onPress={() => router.push('/notifications')} hitSlop={8}>
+                    <Text style={{ color: colors.primary, fontWeight: '600' }}>전체 보기</Text>
+                  </Pressable>
+                </View>
+                {unreadNotes.slice(0, 3).map((n) => (
+                  <NotificationRow key={n.id} n={n} />
+                ))}
+              </Card>
+            )}
 
             {/* AI 비서 */}
             <Card
