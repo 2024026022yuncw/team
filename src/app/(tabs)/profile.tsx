@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 
 import { AccountSwitcher } from '@/components/AccountSwitcher';
+import { EmailInput, isValidEmail } from '@/components/EmailInput';
 import { Avatar, Button, Card, Field, Input, styles } from '@/components/ui';
 import { removeSavedAccount } from '@/lib/accounts';
 import { Alert } from '@/lib/alert';
@@ -19,6 +20,47 @@ export default function ProfileScreen() {
   const [upEmail, setUpEmail] = useState('');
   const [upPassword, setUpPassword] = useState('');
   const [upgrading, setUpgrading] = useState(false);
+  const [pwCurrent, setPwCurrent] = useState('');
+  const [pwNew, setPwNew] = useState('');
+  const [pwConfirm, setPwConfirm] = useState('');
+  const [pwBusy, setPwBusy] = useState(false);
+
+  /** 비밀번호 변경: 현재 비밀번호로 본인 확인 → 새 비밀번호 저장 */
+  async function changePassword() {
+    const email = session?.user.email;
+    if (!email || pwBusy) return;
+    if (pwNew.length < 6) {
+      Alert.alert('입력 확인', '새 비밀번호는 6자 이상이어야 해요.');
+      return;
+    }
+    if (pwNew !== pwConfirm) {
+      Alert.alert('입력 확인', '새 비밀번호가 서로 달라요.');
+      return;
+    }
+    if (pwNew === pwCurrent) {
+      Alert.alert('입력 확인', '지금 비밀번호와 다른 비밀번호를 입력해주세요.');
+      return;
+    }
+    setPwBusy(true);
+    try {
+      // 현재 비밀번호 확인 (틀리면 여기서 실패)
+      const { error: checkErr } = await supabase.auth.signInWithPassword({ email, password: pwCurrent });
+      if (checkErr) {
+        Alert.alert('확인 실패', '현재 비밀번호가 올바르지 않아요.');
+        return;
+      }
+      const { error } = await supabase.auth.updateUser({ password: pwNew });
+      if (error) throw error;
+      setPwCurrent('');
+      setPwNew('');
+      setPwConfirm('');
+      Alert.alert('변경 완료', '비밀번호를 바꿨어요. 다음 로그인부터 새 비밀번호를 쓰세요.');
+    } catch (e) {
+      Alert.alert('변경 실패', errorMessage(e));
+    } finally {
+      setPwBusy(false);
+    }
+  }
 
   useEffect(() => setName(profile?.display_name ?? ''), [profile?.display_name]);
 
@@ -91,6 +133,10 @@ export default function ProfileScreen() {
       Alert.alert('입력 확인', '이메일과 6자 이상 비밀번호를 입력해주세요.');
       return;
     }
+    if (!isValidEmail(email)) {
+      Alert.alert('입력 확인', '이메일 주소를 확인해주세요. (예: hong@naver.com)');
+      return;
+    }
     setUpgrading(true);
     try {
       const { error: emailErr } = await supabase.auth.updateUser({ email });
@@ -128,7 +174,7 @@ export default function ProfileScreen() {
             이메일을 등록하면 지금 계정이 그대로 정식 계정이 돼요(팀·시간표·다이어리 유지).
           </Text>
           <Field label="이메일">
-            <Input value={upEmail} onChangeText={setUpEmail} placeholder="you@example.com" autoCapitalize="none" keyboardType="email-address" autoComplete="email" />
+            <EmailInput value={upEmail} onChange={setUpEmail} />
           </Field>
           <Field label="비밀번호">
             <Input
@@ -142,6 +188,39 @@ export default function ProfileScreen() {
             />
           </Field>
           <Button title="정식 계정으로 전환" onPress={upgrade} loading={upgrading} />
+        </Card>
+      )}
+
+      {/* 비밀번호 변경 (정식 계정만) */}
+      {!isGuest && session?.user.email && (
+        <Card>
+          <Text style={[styles.title, { marginBottom: 12 }]}>비밀번호 변경</Text>
+          <Field label="현재 비밀번호">
+            <Input value={pwCurrent} onChangeText={setPwCurrent} secureTextEntry autoComplete="current-password" placeholder="지금 쓰는 비밀번호" />
+          </Field>
+          <Field label="새 비밀번호">
+            <Input value={pwNew} onChangeText={setPwNew} secureTextEntry autoComplete="new-password" placeholder="6자 이상" />
+          </Field>
+          <Field label="새 비밀번호 확인">
+            <Input
+              value={pwConfirm}
+              onChangeText={setPwConfirm}
+              secureTextEntry
+              autoComplete="new-password"
+              placeholder="한 번 더 입력"
+              returnKeyType="go"
+              onSubmitEditing={changePassword}
+            />
+          </Field>
+          {pwConfirm.length > 0 && pwNew !== pwConfirm && (
+            <Text style={{ color: colors.danger, fontSize: 13, marginTop: -8, marginBottom: 8 }}>새 비밀번호가 서로 달라요.</Text>
+          )}
+          <Button
+            title="비밀번호 바꾸기"
+            onPress={changePassword}
+            loading={pwBusy}
+            disabled={!pwCurrent || pwNew.length < 6 || pwNew !== pwConfirm}
+          />
         </Card>
       )}
 

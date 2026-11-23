@@ -5,6 +5,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, Text, View, type TextInputI
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AccountSwitcher } from '@/components/AccountSwitcher';
+import { EmailInput, isValidEmail } from '@/components/EmailInput';
 import { Button, Field, Input, Segmented, styles } from '@/components/ui';
 import { finishAddingAccount } from '@/lib/accounts';
 import { Alert } from '@/lib/alert';
@@ -52,6 +53,10 @@ export default function LoginScreen() {
     if (busy) return; // 엔터 연타로 중복 요청 방지
     if (!email.trim() || !password) {
       Alert.alert('입력 확인', '이메일과 비밀번호를 입력해주세요.');
+      return;
+    }
+    if (!isValidEmail(email)) {
+      Alert.alert('입력 확인', '이메일 주소를 확인해주세요. (예: hong@naver.com)');
       return;
     }
     if (mode === 'signup' && !name.trim()) {
@@ -148,16 +153,10 @@ export default function LoginScreen() {
             </Field>
           )}
           <Field label="이메일">
-            <Input
-              ref={emailRef}
+            <EmailInput
+              inputRef={emailRef}
               value={email}
-              onChangeText={setEmail}
-              placeholder="you@example.com"
-              autoCapitalize="none"
-              keyboardType="email-address"
-              autoComplete="email"
-              returnKeyType="next"
-              submitBehavior="submit"
+              onChange={setEmail}
               // 엔터: 비밀번호가 비어 있으면 비밀번호 칸으로, 이미 입력돼 있으면 바로 로그인
               onSubmitEditing={() => (password ? submit() : passwordRef.current?.focus())}
             />
