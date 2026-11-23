@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, Text, View, type TextInputInstance } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AccountSwitcher } from '@/components/AccountSwitcher';
 import { Button, Field, Input, Segmented, styles } from '@/components/ui';
 import { Alert } from '@/lib/alert';
 import { errorMessage, supabase } from '@/lib/supabase';
@@ -89,6 +90,9 @@ export default function LoginScreen() {
             <Text style={{ fontSize: 26, fontWeight: '800', color: colors.text }}>팀플모임</Text>
             <Text style={[styles.sub, { marginTop: 6 }]}>일정 공유부터 역할 분담까지 한 곳에서</Text>
           </View>
+
+          {/* 이 기기에 저장된 다른 계정 */}
+          <AccountSwitcher />
 
           <Segmented
             options={[

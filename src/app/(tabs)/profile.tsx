@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 
+import { AccountSwitcher } from '@/components/AccountSwitcher';
 import { Avatar, Button, Card, Field, Input, styles } from '@/components/ui';
+import { removeSavedAccount } from '@/lib/accounts';
 import { Alert } from '@/lib/alert';
 import { deleteMyAccount, updateDisplayName } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -46,7 +48,9 @@ export default function ProfileScreen() {
           onPress: async () => {
             setDeleting(true);
             try {
+              const uid = session?.user.id;
               await deleteMyAccount();
+              if (uid) removeSavedAccount(uid);
               await supabase.auth.signOut({ scope: 'local' });
               Alert.alert('탈퇴 완료', '그동안 이용해주셔서 감사합니다.');
             } catch (e) {
@@ -64,11 +68,18 @@ export default function ProfileScreen() {
     Alert.alert(
       '로그아웃',
       isGuest
-        ? '게스트 계정은 로그아웃하면 다시 들어올 수 없어요. 팀·시간표·다이어리를 계속 쓰려면 먼저 아래에서 이메일을 등록하세요.\n\n그래도 로그아웃할까요?'
+        ? '게스트 계정은 로그아웃하면 다시 들어올 수 없어요.\n\n• 계속 쓰려면: 위에서 이메일을 등록하세요.\n• 다른 계정을 잠깐 쓰려면: 로그아웃 대신 "계정 전환 → 다른 계정 추가"를 쓰면 게스트 계정이 저장돼요.\n\n그래도 로그아웃할까요?'
         : '로그아웃할까요?',
       [
         { text: '취소', style: 'cancel' },
-        { text: '로그아웃', style: 'destructive', onPress: () => supabase.auth.signOut() },
+        {
+          text: '로그아웃',
+          style: 'destructive',
+          onPress: () => {
+            if (session) removeSavedAccount(session.user.id);
+            supabase.auth.signOut();
+          },
+        },
       ],
     );
   }
@@ -145,6 +156,8 @@ export default function ProfileScreen() {
           disabled={!name.trim() || name.trim() === profile?.display_name}
         />
       </Card>
+
+      {session && <AccountSwitcher currentUserId={session.user.id} />}
 
       <View style={{ marginTop: 8 }}>
         <Button title="로그아웃" variant="secondary" icon="log-out-outline" onPress={logout} />
